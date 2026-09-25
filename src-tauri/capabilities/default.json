@@ -1,0 +1,15 @@
+{
+  "$schema": "",
+  "identifier": "default",
+  "description": "Default capabilities for Rocktier Journal — no network access.",
+  "local": true,
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "fs:default",
+    "fs:allow-read",
+    "fs:allow-write",
+    "dialog:default",
+    "opener:default"
+  ]
+}

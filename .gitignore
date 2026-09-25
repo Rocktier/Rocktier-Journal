@@ -1,0 +1,13 @@
+.DS_Store
+node_modules/
+dist/
+.tauri-build/
+*.local
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
