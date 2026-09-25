@@ -1,0 +1,41 @@
+name: Checks
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  checks:
+    name: Tests & Lints
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Install Tauri system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev libayatana-appindicator3-dev
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Frontend typecheck
+        run: npx tsc --noEmit
+
+      - name: Rust tests
+        working-directory: ./src-tauri
+        run: cargo test --all-targets
+
+      - name: Rust lints
+        working-directory: ./src-tauri
+        run: cargo clippy --all-targets -- -D warnings
