@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
 
-type Mode = "unlock" | "create" | "reset";
+type Mode = "unlock" | "create" | "reset" | "forceCreate";
 
 export default function LockScreen() {
   const {
@@ -10,21 +10,24 @@ export default function LockScreen() {
     unlock,
     isUnlocking,
     resetVault,
+    forceCreateVault,
     fetchHint,
+    consumeHint,
     error,
     hint,
   } = useAuth();
 
+  // Fields
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
   const [hintQuestion, setHintQuestion] = useState("");
   const [hintAnswer, setHintAnswer] = useState("");
   const [showHintAnswer, setShowHintAnswer] = useState(false);
-
-  const [mode, setMode] = useState<Mode>(hasVault ? "unlock" : "create");
   const [localError, setLocalError] = useState<string | null>(null);
+
+  // Initial mode from vault presence
+  const [mode, setMode] = useState<Mode>(hasVault ? "unlock" : "create");
 
   const passwordRef = useRef<HTMLInputElement | null>(null);
   const answerRef = useRef<HTMLInputElement | null>(null);
@@ -33,8 +36,26 @@ export default function LockScreen() {
     passwordRef.current?.focus();
   }, [mode]);
 
+  // If hasVault changes (e.g. deleted via resetVault), sync mode
+  useEffect(() => {
+    if (!hasVault && (mode === "unlock" || mode === "reset")) {
+      setMode("create");
+      setPassword("");
+      setHintAnswer("");
+    }
+  }, [hasVault, mode]);
+
   const currentError = localError ?? error;
 
+  const clearAll = () => {
+    setPassword("");
+    setConfirmPassword("");
+    setHintQuestion("");
+    setHintAnswer("");
+    setLocalError(null);
+  };
+
+  // ── Create (fresh vault) ─────────────────────────────────────
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
@@ -46,6 +67,19 @@ export default function LockScreen() {
     await initVault(password, hintQuestion.trim(), hintAnswer.trim());
   };
 
+  // ── Force-create (overwrite existing) ────────────────────────
+  const handleForceCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLocalError(null);
+    if (!password) return setLocalError("Please enter a password.");
+    if (password.length < 8) return setLocalError("Password must be at least 8 characters.");
+    if (password !== confirmPassword) return setLocalError("Passwords do not match.");
+    if (!hintQuestion.trim()) return setLocalError("Please set a hint question.");
+    if (!hintAnswer.trim()) return setLocalError("Please set a hint answer.");
+    await forceCreateVault(password, hintQuestion.trim(), hintAnswer.trim());
+  };
+
+  // ── Unlock ────────────────────────────────────────────────────
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
@@ -53,27 +87,30 @@ export default function LockScreen() {
     await unlock(password);
   };
 
+  // ── Forgot password: fetch hint, branch on result ─────────────
   const handleForgot = async () => {
     setLocalError(null);
     const h = await fetchHint();
-    if (h) {
+    if (h && h.trim().length > 0) {
       setMode("reset");
     } else {
-      setLocalError("No hint was set. Vault cannot be recovered.");
+      // No hint — vault is unrecoverable; offer force create
+      setLocalError("No hint set on this vault. You can overwrite with a new vault (all old data lost).");
+      setMode("forceCreate");
+      consumeHint();
     }
   };
 
+  // ── Reset with hint answer ────────────────────────────────────
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
     if (!hintAnswer.trim()) return setLocalError("Please enter your hint answer.");
     try {
       await resetVault(hintAnswer.trim());
+      // After reset, switch to create
       setMode("create");
-      setPassword("");
-      setConfirmPassword("");
-      setHintAnswer("");
-      setHintQuestion("");
+      clearAll();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setLocalError(msg || "Incorrect hint answer.");
@@ -82,9 +119,21 @@ export default function LockScreen() {
 
   const switchToUnlock = () => {
     setMode("unlock");
-    setHintAnswer("");
-    setLocalError(null);
+    clearAll();
+    consumeHint();
   };
+
+  const switchToForceCreate = () => {
+    setMode("forceCreate");
+    clearAll();
+  };
+
+  // ── Render ────────────────────────────────────────────────────
+  const visibilityBtn = (show: boolean, fn: (v: boolean) => void) => (
+    <button type="button" className="lock-visibility-toggle" onClick={() => fn(!show)} aria-label="">
+      {show ? "◉" : "◎"}
+    </button>
+  );
 
   return (
     <div className="lock-screen">
@@ -92,18 +141,19 @@ export default function LockScreen() {
         <div className="brand-dot" />
         <h1 className="lock-title">Rocktier Journal</h1>
 
+        {/* CREATE (fresh) */}
         {mode === "create" && (
           <>
             <p className="lock-subtitle">Create your vault</p>
             <form onSubmit={handleCreate} className="lock-form">
               <div className="lock-input-wrap">
-                <input ref={passwordRef} type={showPassword ? "text" : "password"} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="lock-input" aria-label="Password" />
-                <button type="button" className="lock-visibility-toggle" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? "◉" : "◎"}</button>
+                <input ref={passwordRef} type={showPassword ? "text" : "password"} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="lock-input" />
+                {visibilityBtn(showPassword, setShowPassword)}
               </div>
-              <input type={showPassword ? "text" : "password"} placeholder="Confirm password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="lock-input" aria-label="Confirm password" />
+              <input type={showPassword ? "text" : "password"} placeholder="Confirm password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="lock-input" />
               <div className="lock-hint-section">
-                <input type="text" placeholder="Hint question (e.g. First pet's name?)" value={hintQuestion} onChange={(e) => setHintQuestion(e.target.value)} className="lock-input" aria-label="Hint question" />
-                <input type="text" placeholder="Hint answer" value={hintAnswer} onChange={(e) => setHintAnswer(e.target.value)} className="lock-input" aria-label="Hint answer" />
+                <input type="text" placeholder="Hint question (e.g. First pet's name?)" value={hintQuestion} onChange={(e) => setHintQuestion(e.target.value)} className="lock-input" />
+                <input type="text" placeholder="Hint answer" value={hintAnswer} onChange={(e) => setHintAnswer(e.target.value)} className="lock-input" />
               </div>
               <button type="submit" disabled={isUnlocking} className="lock-btn">{isUnlocking ? "Please wait…" : "Create Vault"}</button>
             </form>
@@ -111,20 +161,25 @@ export default function LockScreen() {
           </>
         )}
 
+        {/* UNLOCK */}
         {mode === "unlock" && (
           <>
             <p className="lock-subtitle">Enter password to unlock</p>
             <form onSubmit={handleUnlock} className="lock-form">
               <div className="lock-input-wrap">
-                <input ref={passwordRef} type={showPassword ? "text" : "password"} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="lock-input" aria-label="Password" autoFocus />
-                <button type="button" className="lock-visibility-toggle" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? "Hide password" : "Show password"}>{showPassword ? "◉" : "◎"}</button>
+                <input ref={passwordRef} type={showPassword ? "text" : "password"} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="lock-input" autoFocus />
+                {visibilityBtn(showPassword, setShowPassword)}
               </div>
               <button type="submit" disabled={isUnlocking} className="lock-btn">{isUnlocking ? "Please wait…" : "Unlock"}</button>
             </form>
-            <button type="button" className="lock-forgot" onClick={handleForgot}>Forgot password?</button>
+            <div className="lock-secondary-actions">
+              <button type="button" className="lock-forgot" onClick={handleForgot}>Forgot password?</button>
+              <button type="button" className="lock-forgot danger" onClick={switchToForceCreate}>Create new vault (erase old)</button>
+            </div>
           </>
         )}
 
+        {/* RESET via hint answer */}
         {mode === "reset" && (
           <>
             <p className="lock-subtitle">Answer your hint question</p>
@@ -134,10 +189,30 @@ export default function LockScreen() {
                 <span className="lock-hint-text">{hint ?? "—"}</span>
               </div>
               <div className="lock-input-wrap">
-                <input ref={answerRef} type={showHintAnswer ? "text" : "password"} placeholder="Your answer" value={hintAnswer} onChange={(e) => setHintAnswer(e.target.value)} className="lock-input" aria-label="Hint answer" autoFocus />
-                <button type="button" className="lock-visibility-toggle" onClick={() => setShowHintAnswer((v) => !v)} aria-label={showHintAnswer ? "Hide answer" : "Show answer"}>{showHintAnswer ? "◉" : "◎"}</button>
+                <input ref={answerRef} type={showHintAnswer ? "text" : "password"} placeholder="Your answer" value={hintAnswer} onChange={(e) => setHintAnswer(e.target.value)} className="lock-input" autoFocus />
+                {visibilityBtn(showHintAnswer, setShowHintAnswer)}
               </div>
               <button type="submit" disabled={isUnlocking} className="lock-btn danger">{isUnlocking ? "Please wait…" : "Erase & Reset Vault"}</button>
+              <button type="button" className="lock-cancel" onClick={switchToUnlock}>← Back to unlock</button>
+            </form>
+          </>
+        )}
+
+        {/* FORCE CREATE (overwrite, usually triggered by forgot with no hint) */}
+        {mode === "forceCreate" && (
+          <>
+            <p className="lock-subtitle">Create new vault (overwrites old data)</p>
+            <form onSubmit={handleForceCreate} className="lock-form">
+              <div className="lock-input-wrap">
+                <input ref={passwordRef} type={showPassword ? "text" : "password"} placeholder="New password" value={password} onChange={(e) => setPassword(e.target.value)} className="lock-input" autoFocus />
+                {visibilityBtn(showPassword, setShowPassword)}
+              </div>
+              <input type={showPassword ? "text" : "password"} placeholder="Confirm new password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="lock-input" />
+              <div className="lock-hint-section">
+                <input type="text" placeholder="Hint question (e.g. First pet's name?)" value={hintQuestion} onChange={(e) => setHintQuestion(e.target.value)} className="lock-input" />
+                <input type="text" placeholder="Hint answer" value={hintAnswer} onChange={(e) => setHintAnswer(e.target.value)} className="lock-input" />
+              </div>
+              <button type="submit" disabled={isUnlocking} className="lock-btn danger">{isUnlocking ? "Please wait…" : "Overwrite & Create"}</button>
               <button type="button" className="lock-cancel" onClick={switchToUnlock}>← Back to unlock</button>
             </form>
           </>

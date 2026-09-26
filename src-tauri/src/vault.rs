@@ -138,12 +138,71 @@ pub fn delete_vault(
 }
 
 #[tauri::command]
-pub fn check_vault_exists(state: State<'_, VaultState>) -> bool {
-    state.path.lock().unwrap().is_some()
+pub fn check_vault_exists(state: State<'_, VaultState>, app_handle: tauri::AppHandle) -> bool {
+    // Runtime state takes precedence; fall back to disk check
+    if state.path.lock().unwrap().is_some() {
+        return true;
+    }
+    app_handle
+        .path()
+        .app_local_data_dir()
+        .map(|d| d.join(VAULT_DIRNAME).exists())
+        .unwrap_or(false)
+}
+
+/// Force-create a new vault even if one already exists (destroy old data).
+#[tauri::command]
+pub fn force_create_vault(
+    state: State<'_, VaultState>,
+    app_handle: tauri::AppHandle,
+    password: String,
+    hint_question: String,
+    hint_answer: String,
+) -> Result<(), String> {
+    // Delete any existing vault first
+    let app_dir = app_handle
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Cannot resolve app data dir: {}", e))?;
+    let vault_dir = app_dir.join(VAULT_DIRNAME);
+    if vault_dir.exists() {
+        fs::remove_dir_all(&vault_dir)
+            .map_err(|e| format!("Failed to delete old vault: {}", e))?;
+    }
+    *state.key.lock().unwrap() = None;
+    *state.path.lock().unwrap() = None;
+    *state.salt.lock().unwrap() = None;
+
+    // Delegate to init_vault logic (but skip its exists check)
+    init_vault_internal(state, app_handle, password, hint_question, hint_answer)
 }
 
 #[tauri::command]
 pub fn init_vault(
+    state: State<'_, VaultState>,
+    app_handle: tauri::AppHandle,
+    password: String,
+    hint_question: String,
+    hint_answer: String,
+) -> Result<(), String> {
+    if password.len() < 8 {
+        return Err("Password must be at least 8 characters".to_string());
+    }
+
+    let app_dir = app_handle
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Cannot resolve app data dir: {}", e))?;
+    let vault_dir = app_dir.join(VAULT_DIRNAME);
+
+    if vault_dir.exists() {
+        return Err("Vault already exists".to_string());
+    }
+
+    init_vault_internal(state, app_handle, password, hint_question, hint_answer)
+}
+
+fn init_vault_internal(
     state: State<'_, VaultState>,
     app_handle: tauri::AppHandle,
     password: String,

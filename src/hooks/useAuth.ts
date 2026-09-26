@@ -20,7 +20,7 @@ export function useAuth() {
 
   useEffect(() => {
     invoke<boolean>("check_vault_exists")
-      .then((hasVault) => setState((s) => ({ ...s, hasVault: hasVault })))
+      .then((hasVault) => setState((s) => ({ ...s, hasVault })))
       .catch(() => {});
   }, []);
 
@@ -34,10 +34,32 @@ export function useAuth() {
     }
   }, []);
 
+  const consumeHint = useCallback(() => {
+    setState((s) => ({ ...s, hint: null }));
+  }, []);
+
   const resetVault = useCallback(async (answer: string) => {
     await invoke("delete_vault", { hintAnswer: answer });
     setState((s) => ({ ...s, hasVault: false, error: null, hint: null }));
   }, []);
+
+  const forceCreateVault = useCallback(
+    async (password: string, hintQuestion: string, hintAnswer: string) => {
+      setState((s) => ({ ...s, isUnlocking: true, error: null }));
+      try {
+        await invoke("force_create_vault", {
+          password,
+          hintQuestion,
+          hintAnswer,
+        });
+        setState((s) => ({ ...s, isAuthenticated: true, isUnlocking: false }));
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setState((s) => ({ ...s, isUnlocking: false, error: msg }));
+      }
+    },
+    []
+  );
 
   const initVault = useCallback(
     async (password: string, hintQuestion: string, hintAnswer: string) => {
@@ -77,5 +99,5 @@ export function useAuth() {
     setState((s) => ({ ...s, isAuthenticated: false }));
   }, []);
 
-  return { ...state, initVault, unlock, lock, resetVault, fetchHint };
+  return { ...state, initVault, unlock, lock, resetVault, forceCreateVault, fetchHint, consumeHint };
 }

@@ -13,6 +13,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            vault::force_create_vault,
             vault::delete_vault,
             vault::get_hint,
             vault::check_vault_exists,
