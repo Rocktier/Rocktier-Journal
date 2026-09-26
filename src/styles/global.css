@@ -226,6 +226,76 @@ body {
   margin-top: 4px;
 }
 
+.lock-secondary-actions {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+  margin-top: 2px;
+}
+
+.lock-forgot.danger {
+  color: var(--danger);
+}
+
+.lock-forgot.danger:hover {
+  color: var(--danger);
+  opacity: 0.8;
+}
+
+.lock-hint-display {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 12px);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: left;
+}
+
+.lock-hint-q {
+  color: var(--text-tertiary);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.lock-hint-text {
+  flex: 1;
+}
+
+.lock-hint-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lock-btn.danger {
+  background: var(--danger);
+  color: var(--accent-text);
+}
+
+.lock-cancel {
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 6px 0 2px;
+  text-align: center;
+  transition: color 0.1s;
+}
+
+.lock-cancel:hover {
+  color: var(--text-secondary);
+}
+
 /* ============ App Shell ============ */
 
 .app-shell {

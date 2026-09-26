@@ -43,7 +43,7 @@ jobs:
         id: tauri_action
         with:
           tauriBuildFlags: ["--bundles", "msi"]
-          includeUpdater: false
+          includeUpdaterJson: false
           includeDebug: false
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           releaseName: "Rocktier Journal ${{ github.event.release.tag_name || github.ref_name }}"

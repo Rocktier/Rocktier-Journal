@@ -220,7 +220,7 @@ export default function JournalEditor({ content, onChange }: Props) {
     if (!e) return;
     const current = e.getHTML();
     if (current !== content) {
-      e.commands.setContent(content || "", false);
+      e.commands.setContent(content || "", { emitUpdate: false });
     }
   }, [content, editor]);
 
