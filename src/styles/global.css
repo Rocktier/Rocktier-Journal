@@ -466,9 +466,10 @@ body {
 /* ============ CodeMirror 6 ============ */
 
 .cm-editor-host {
+  display: flex;
   flex: 1;
-  overflow-y: auto;
   min-height: 0;
+  overflow: hidden;
 }
 
 .cm-editor-host .cm-editor {
@@ -476,7 +477,13 @@ body {
 }
 
 .cm-editor-host .cm-scroller {
-  overflow: auto;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+.cm-editor-host .cm-placeholder {
+  color: var(--text-tertiary);
+  font-style: italic;
 }
 
 /* ============ Mood Picker ============ */
