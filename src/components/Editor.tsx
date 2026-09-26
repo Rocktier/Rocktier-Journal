@@ -99,19 +99,31 @@ export default function Editor({ date }: Props) {
     }
   }, [date, title, content, mood]);
 
-  // Auto-save: debounced 800ms after last dirty change
+  // Auto-save: debounced 1500ms after last dirty change.
+  // During typing, keep the previous status ("saved") — showing "unsaved"
+  // on every keystroke is distracting.
   useEffect(() => {
     if (!dirty) return;
-    setSaveStatus("unsaved");
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       handleSave();
-    }, 800);
+    }, 1500);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [content, title, mood]);
+
+  // On blur (window loses focus): save immediately if dirty.
+  useEffect(() => {
+    const onBlur = () => {
+      if (!dirty) return;
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      handleSave();
+    };
+    window.addEventListener("blur", onBlur);
+    return () => window.removeEventListener("blur", onBlur);
+  }, [dirty, handleSave]);
 
   // Listen for Cmd/Ctrl+S (immediate save, bypass debounce)
   useEffect(() => {
@@ -177,9 +189,6 @@ export default function Editor({ date }: Props) {
         <span className="editor-save-status">
           {saveStatus === "saving" && <span className="sv-saving">Saving…</span>}
           {saveStatus === "saved" && <span className="sv-saved">Saved ✓</span>}
-          {saveStatus === "unsaved" && dirty && (
-            <span className="sv-unsaved">Unsaved · auto-saves</span>
-          )}
         </span>
         {error && <span className="editor-error">{error}</span>}
       </div>

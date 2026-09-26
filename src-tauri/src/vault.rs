@@ -418,17 +418,35 @@ pub fn load_diary(
 
 #[tauri::command]
 pub fn list_diaries(state: State<'_, VaultState>) -> Result<Vec<DiarySummary>, String> {
+    let entries = load_all_entries(state)?;
+    let mut summaries = Vec::with_capacity(entries.len());
+    for diary in entries {
+        let word_count = count_words(&diary.content);
+        summaries.push(DiarySummary {
+            date: diary.date,
+            title: diary.title,
+            word_count,
+            has_images: !diary.images.is_empty(),
+            mood: diary.mood,
+        });
+    }
+    summaries.sort_by(|a, b| b.date.cmp(&a.date));
+    Ok(summaries)
+}
+
+/// Decrypt and return every diary entry (including content).
+/// Shared by list_diaries and search_diaries.
+fn load_all_entries(state: State<'_, VaultState>) -> Result<Vec<DiaryEntry>, String> {
     let vault_dir = state.path.lock().unwrap().clone()
         .ok_or("Vault is not initialized")?;
     let key = key_guard(&state)?;
 
     let entries_dir = vault_dir.join(ENTRIES_DIR);
-
     if !entries_dir.exists() {
         return Ok(Vec::new());
     }
 
-    let mut summaries = Vec::new();
+    let mut entries = Vec::new();
 
     for entry in fs::read_dir(&entries_dir)
         .map_err(|e| format!("Failed to read entries dir: {}", e))?
@@ -443,23 +461,12 @@ pub fn list_diaries(state: State<'_, VaultState>) -> Result<Vec<DiarySummary>, S
             continue;
         }
 
-        // Try to read the entry
         if let Ok(diary) = read_entry(&vault_dir, &key, filename) {
-            let word_count = count_words(&diary.content);
-            summaries.push(DiarySummary {
-                date: diary.date,
-                title: diary.title,
-                word_count,
-                has_images: !diary.images.is_empty(),
-                mood: diary.mood,
-            });
+            entries.push(diary);
         }
     }
 
-    // Sort descending by date
-    summaries.sort_by(|a, b| b.date.cmp(&a.date));
-
-    Ok(summaries)
+    Ok(entries)
 }
 
 #[tauri::command]
@@ -487,39 +494,47 @@ pub fn search_diaries(
     date_to: Option<String>,
     mood_filter: Option<String>,
 ) -> Result<Vec<DiarySummary>, String> {
-    let all = list_diaries(state)?;
+    let all = load_all_entries(state)?;
     let query_lower = query.to_lowercase();
 
     let filtered: Vec<DiarySummary> = all
         .into_iter()
-        .filter(|summary| {
+        .filter(|entry| {
             // Date range filter
             if let Some(ref from) = date_from {
-                if summary.date < *from {
+                if entry.date < *from {
                     return false;
                 }
             }
             if let Some(ref to) = date_to {
-                if summary.date > *to {
+                if entry.date > *to {
                     return false;
                 }
             }
             // Mood filter
             if let Some(ref m) = mood_filter {
-                if summary.mood.as_deref() != Some(m.as_str()) {
+                if entry.mood.as_deref() != Some(m.as_str()) {
                     return false;
                 }
             }
-            // Text search on date and title
+            // Text search on date, title, and content body
             if !query_lower.is_empty() {
-                let date_match = summary.date.contains(&query_lower);
-                let title_match = summary.title
+                let date_match = entry.date.contains(&query_lower);
+                let title_match = entry.title
                     .as_ref()
                     .map(|t| t.to_lowercase().contains(&query_lower))
                     .unwrap_or(false);
-                return date_match || title_match;
+                let content_match = entry.content.to_lowercase().contains(&query_lower);
+                return date_match || title_match || content_match;
             }
             true
+        })
+        .map(|entry| DiarySummary {
+            date: entry.date,
+            title: entry.title,
+            word_count: count_words(&entry.content),
+            has_images: !entry.images.is_empty(),
+            mood: entry.mood,
         })
         .collect();
 

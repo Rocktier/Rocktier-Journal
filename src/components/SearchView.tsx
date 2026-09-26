@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 interface DiarySummary {
@@ -15,8 +15,8 @@ export default function SearchView() {
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleSearch = useCallback(async () => {
-    if (!query.trim()) {
+  const runSearch = useCallback(async (q: string) => {
+    if (!q.trim()) {
       setResults([]);
       setSearched(false);
       return;
@@ -24,7 +24,7 @@ export default function SearchView() {
     setLoading(true);
     try {
       const res = await invoke<DiarySummary[]>("search_diaries", {
-        query: query.trim(),
+        query: q.trim(),
         dateFrom: null,
         dateTo: null,
         moodFilter: null,
@@ -39,13 +39,16 @@ export default function SearchView() {
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, []);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSearch();
-    }
-  };
+  // Live search with debounce — body search decrypts every entry on each
+  // keystroke, so we throttle to keep it responsive at hundreds of entries.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      runSearch(query);
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [query, runSearch]);
 
   const moodMap: Record<string, string> = {
     happy: "😀", neutral: "😐", sad: "😢", angry: "😡", tired: "😴", custom: "❓",
@@ -61,17 +64,15 @@ export default function SearchView() {
           className="search-input"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Search by date or title…"
+          placeholder="Search title and content…"
         />
-        <button onClick={handleSearch} className="search-btn" disabled={loading}>
-          {loading ? "…" : "Search"}
-        </button>
+        {loading && <span className="search-spinner" aria-hidden="true">⌛</span>}
       </div>
 
       {searched && (
         <p className="search-summary">
           {results.length} result{results.length !== 1 ? "s" : ""}
+          {query.trim() && ` for “${query.trim()}”`}
         </p>
       )}
 
@@ -93,7 +94,7 @@ export default function SearchView() {
       )}
 
       <p className="search-note">
-        Note: Full-text content search decrypts all entries and runs locally. Date and title search is instant.
+        Title and content search is local-only. Small libraries are near-instant; hundreds of entries may take a moment as each entry is decrypted in memory.
       </p>
     </div>
   );
