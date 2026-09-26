@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import MilkdownEditor from "./MilkdownEditor";
+import JournalEditor from "./JournalEditor";
 import MoodPicker from "./MoodPicker";
 
 interface DiaryEntry {
@@ -39,7 +39,8 @@ export default function Editor({ date }: Props) {
       .then((entry) => {
         if (cancelled) return;
         if (entry) {
-          setContent(entry.content || "");
+          // First load: ensure content is valid HTML for the rich-text editor.
+          setContent(toStyledHtml(entry.content || ""));
           setTitle(entry.title);
           setMood(entry.mood || null);
         } else {
@@ -63,8 +64,10 @@ export default function Editor({ date }: Props) {
     };
   }, [date]);
 
-  const internalSetContent = useCallback((markdown: string) => {
-    setContent(markdown);
+  // Tiptap emits HTML — wrap the (possibly markdown) string so it renders
+  // correctly when re-edited in the rich-text editor.
+  const internalSetContent = useCallback((raw: string) => {
+    setContent(toStyledHtml(raw));
     setDirty(true);
     setError(null);
   }, []);
@@ -138,11 +141,10 @@ export default function Editor({ date }: Props) {
       </div>
 
       <div className="editor-body">
-        <MilkdownEditor
+        <JournalEditor
           key={editorKey}
           content={content}
           onChange={internalSetContent}
-          placeholder="What's on your mind today?"
         />
       </div>
 
@@ -166,11 +168,38 @@ function formatDate(iso: string): string {
   });
 }
 
-function countWords(markdown: string): number {
-  if (!markdown.trim()) return 0;
-  let text = markdown
-    .replace(/[#*`~\[\]()>\-_!]/g, "")
+function countWords(html: string): number {
+  const text = stripHtml(html);
+  if (!text.trim()) return 0;
+  return text.split(/\s+/).length;
+}
+
+/** Convert legacy plain-text / markdown into styled HTML paragraphs. */
+function toStyledHtml(raw: string): string {
+  if (!raw.trim()) return "";
+  // Already HTML?
+  if (/<\/?[a-z][\s\S]*>/i.test(raw)) return raw;
+  const escaped = raw
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return escaped
+    .split(/\n{2,}/)
+    .map((p) => {
+      const inline = p
+        .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*(.+?)\*/g, "<em>$1</em>")
+        .replace(/`(.+?)`/g, "<code>$1</code>")
+        .replace(/\n/g, "<br>");
+      return `<p>${inline}</p>`;
+    })
+    .join("");
+}
+
+/** Strip HTML tags for word / char count. */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  return text ? text.split(/\s+/).length : 0;
 }
