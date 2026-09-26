@@ -120,11 +120,15 @@ pub fn delete_vault(
         let meta: VaultMeta = serde_json::from_slice(&bytes)
             .map_err(|e| format!("Failed to parse meta: {}", e))?;
 
-        if let (Some(stored_hash), Some(provided)) = (&meta.hint_answer_hash, hint_answer) {
-            let provided_hash = crypto::hash_hint_answer(&provided);
-            if *stored_hash != provided_hash {
-                return Err("Incorrect hint answer".to_string());
+        match (&meta.hint_answer_hash, hint_answer) {
+            (Some(stored_hash), Some(provided)) => {
+                let provided_hash = crypto::hash_hint_answer(&provided);
+                if *stored_hash != provided_hash {
+                    return Err("Incorrect hint answer".to_string());
+                }
             }
+            (Some(_), None) => return Err("Hint answer required to delete this vault".to_string()),
+            _ => { /* no hint set — allow delete */ }
         }
     }
 
