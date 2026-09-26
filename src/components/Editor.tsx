@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { MilkdownProvider } from "@milkdown/react";
 import MilkdownEditor from "./MilkdownEditor";
 import MoodPicker from "./MoodPicker";
 
@@ -27,9 +26,7 @@ export default function Editor({ date }: Props) {
   const [dirty, setDirty] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const editorKeyRef = useRef(0);
-
-  // Force remount Milkdown when date changes
+  // Force remount editor when date changes
   const [editorKey, setEditorKey] = useState(0);
 
   useEffect(() => {
@@ -108,14 +105,8 @@ export default function Editor({ date }: Props) {
   const charCount = content.length;
 
   if (loading) {
-    return (
-      <div className="editor">
-        <div className="editor-loading">
-          <span className="brand-dot small" />
-          <span>Loading entry…</span>
-        </div>
-      </div>
-    );
+    // Skeleton — no text that implies network I/O; local disk read is near-instant
+    return <div className="editor" aria-busy="true" />;
   }
 
   return (
@@ -147,13 +138,12 @@ export default function Editor({ date }: Props) {
       </div>
 
       <div className="editor-body">
-        <MilkdownProvider key={editorKey}>
-          <MilkdownEditor
-            content={content}
-            onChange={internalSetContent}
-            placeholder="What's on your mind today?"
-          />
-        </MilkdownProvider>
+        <MilkdownEditor
+          key={editorKey}
+          content={content}
+          onChange={internalSetContent}
+          placeholder="What's on your mind today?"
+        />
       </div>
 
       <div className="editor-footer">

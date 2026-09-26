@@ -293,8 +293,34 @@ body {
   text-align: center;
 }
 
-.sidebar-lock {
+.sidebar-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin: 0 12px;
+}
+
+.sidebar-theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  width: calc(100% - 24px);
+}
+
+.sidebar-theme-toggle:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.sidebar-lock {
   padding: 8px;
   border-radius: 12px;
   border: 1px solid var(--border);
@@ -302,6 +328,7 @@ body {
   color: var(--text-tertiary);
   font-size: 12px;
   cursor: pointer;
+  width: calc(100% - 24px);
   transition: all 0.15s;
 }
 
@@ -436,102 +463,20 @@ body {
   color: var(--danger);
 }
 
-/* ============ Milkdown ============ */
+/* ============ CodeMirror 6 ============ */
 
-.milkdown-editor-wrapper,
-.milkdown-loading {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.milkdown-loading {
-  align-items: center;
-  justify-content: center;
-  color: var(--text-tertiary);
-}
-
-.milkdown-editor-wrapper .milkdown {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.milkdown-editor-wrapper .editor {
+.cm-editor-host {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 28px;
-  background: transparent;
+  min-height: 0;
 }
 
-.milkdown-editor-wrapper .ProseMirror {
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 15px;
-  line-height: 1.75;
-  outline: none;
-  min-height: 100%;
+.cm-editor-host .cm-editor {
+  height: 100%;
 }
 
-.milkdown-editor-wrapper .ProseMirror p { margin: 0 0 12px 0; }
-
-.milkdown-editor-wrapper .ProseMirror h1,
-.milkdown-editor-wrapper .ProseMirror h2,
-.milkdown-editor-wrapper .ProseMirror h3 {
-  color: var(--accent);
-  font-weight: 600;
-  margin: 20px 0 8px 0;
-}
-
-.milkdown-editor-wrapper .ProseMirror h1 { font-size: 22px; }
-.milkdown-editor-wrapper .ProseMirror h2 { font-size: 18px; }
-.milkdown-editor-wrapper .ProseMirror h3 { font-size: 16px; }
-
-.milkdown-editor-wrapper .ProseMirror blockquote {
-  border-left: 3px solid var(--accent);
-  padding-left: 16px;
-  color: var(--text-secondary);
-  margin: 12px 0;
-}
-
-.milkdown-editor-wrapper .ProseMirror code {
-  background: var(--bg-card);
-  border-radius: 6px;
-  padding: 2px 6px;
-  font-size: 13px;
-  font-family: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
-}
-
-.milkdown-editor-wrapper .ProseMirror pre {
-  background: var(--bg-card);
-  border-radius: 12px;
-  padding: 16px;
-  overflow-x: auto;
-  margin: 12px 0;
-}
-
-.milkdown-editor-wrapper .ProseMirror pre code {
-  background: none;
-  padding: 0;
-}
-
-.milkdown-editor-wrapper .ProseMirror ul,
-.milkdown-editor-wrapper .ProseMirror ol {
-  padding-left: 24px;
-  margin: 8px 0;
-}
-
-.milkdown-editor-wrapper .ProseMirror a {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
-.milkdown-editor-wrapper .ProseMirror img {
-  max-width: 100%;
-  border-radius: 12px;
-  margin: 12px 0;
+.cm-editor-host .cm-scroller {
+  overflow: auto;
 }
 
 /* ============ Mood Picker ============ */

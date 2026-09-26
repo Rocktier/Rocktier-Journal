@@ -1,3 +1,5 @@
+import { useTheme } from "../hooks/useTheme";
+
 interface Props {
   currentView: string;
   onViewChange: (view: any) => void;
@@ -5,6 +7,8 @@ interface Props {
 }
 
 export default function Sidebar({ currentView, onViewChange, onLock }: Props) {
+  const { theme, toggleTheme } = useTheme();
+
   const navItems = [
     { id: "today", label: "Today", icon: "✏" },
     { id: "calendar", label: "Calendar", icon: "▦" },
@@ -34,9 +38,15 @@ export default function Sidebar({ currentView, onViewChange, onLock }: Props) {
         ))}
       </ul>
 
-      <button className="sidebar-lock" onClick={onLock}>
-        Lock
-      </button>
+      <div className="sidebar-bottom">
+        <button className="sidebar-theme-toggle" onClick={toggleTheme} title={theme === "dark" ? "Switch to light" : "Switch to dark"}>
+          <span className="sidebar-icon">{theme === "dark" ? "☀" : "☾"}</span>
+          <span>{theme === "dark" ? "Light" : "Dark"}</span>
+        </button>
+        <button className="sidebar-lock" onClick={onLock}>
+          Lock
+        </button>
+      </div>
     </nav>
   );
 }
