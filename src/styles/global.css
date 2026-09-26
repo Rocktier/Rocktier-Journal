@@ -467,13 +467,15 @@ body {
 
 .cm-editor-host {
   display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
   overflow: hidden;
 }
 
 .cm-editor-host .cm-editor {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .cm-editor-host .cm-scroller {
