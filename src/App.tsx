@@ -2,9 +2,9 @@ import { useEffect } from "react";
 import LockScreen from "./components/LockScreen";
 import AppShell from "./components/AppShell";
 import { useTheme } from "./hooks/useTheme";
-import { useAuth } from "./hooks/useAuth";
+import { AuthProvider, useAuth } from "./hooks/AuthContext";
 
-export default function App() {
+function AppInner() {
   const { theme } = useTheme();
   const { isAuthenticated, lock } = useAuth();
 
@@ -16,5 +16,13 @@ export default function App() {
     <div className="app-root">
       {isAuthenticated ? <AppShell onLock={lock} /> : <LockScreen />}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
   );
 }
