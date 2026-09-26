@@ -20,6 +20,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } catch {
       /* localStorage may be unavailable */
     }
+    // 未手动选择过：跟随系统偏好（锁定机会留给手动切换，与 head 内联首帧脚本一致）
+    if (window.matchMedia?.("(prefers-color-scheme: light)").matches) {
+      return "light";
+    }
     return "dark";
   });
 

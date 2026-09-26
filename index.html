@@ -5,6 +5,25 @@
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Rocktier Journal</title>
+    <script>
+      // 主题首帧防闪烁：与 useTheme 的初始决策保持一致
+      // （本地已选 > 系统偏好 > 深色）。React 挂载前先落 data-theme，
+      // 否则浅色偏好用户会看到一帧深色。
+      (function () {
+        try {
+          var saved = localStorage.getItem("rj-theme");
+          var theme =
+            saved === "light" || saved === "dark"
+              ? saved
+              : window.matchMedia("(prefers-color-scheme: light)").matches
+                ? "light"
+                : "dark";
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (e) {
+          /* localStorage may be unavailable */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

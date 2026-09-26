@@ -52,7 +52,7 @@ body {
   align-items: center;
   gap: 12px;
   padding: 48px 40px;
-  border-radius: 20px;
+  border-radius: var(--radius-md);
   background: var(--bg-card);
   border: 1px solid var(--border);
   min-width: 320px;
@@ -114,7 +114,7 @@ body {
   width: 100%;
   padding: 10px 14px;
   padding-right: 38px;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--bg-input);
   color: var(--text-primary);
@@ -183,7 +183,7 @@ body {
 }
 
 .password-strength-fill.weak { background: var(--danger); }
-.password-strength-fill.medium { background: #f0a500; }
+.password-strength-fill.medium { background: var(--dot); }
 .password-strength-fill.strong { background: var(--success); }
 
 .password-strength-label {
@@ -195,13 +195,13 @@ body {
 }
 
 .password-strength-label.weak { color: var(--danger); }
-.password-strength-label.medium { color: #f0a500; }
+.password-strength-label.medium { color: var(--dot); }
 .password-strength-label.strong { color: var(--success); }
 
 .lock-btn {
   width: 100%;
   padding: 10px;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   border: none;
   background: var(--accent);
   color: var(--accent-text);
@@ -251,7 +251,7 @@ body {
   gap: 8px;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 12px);
+  border-radius: var(--radius-sm);
   background: var(--bg-card);
   color: var(--text-secondary);
   font-size: 13px;
@@ -353,7 +353,7 @@ body {
   width: 100%;
   padding: 8px 12px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   font-size: 13px;
@@ -390,7 +390,7 @@ body {
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-tertiary);
@@ -407,7 +407,7 @@ body {
 
 .sidebar-lock {
   padding: 8px;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-tertiary);
@@ -496,7 +496,7 @@ body {
 .editor-save {
   margin-left: auto;
   padding: 6px 16px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   border: none;
   background: var(--accent);
   color: var(--accent-text);
@@ -690,7 +690,7 @@ body {
 }
 .ProseMirror pre {
   background: var(--bg-card);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 14px 18px;
   overflow-x: auto;
   margin: 12px 0;
@@ -784,7 +784,7 @@ body {
 .calendar-nav-btn {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-primary);
@@ -799,7 +799,7 @@ body {
 
 .calendar-today-btn {
   padding: 6px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-secondary);
@@ -836,7 +836,7 @@ body {
   justify-content: center;
   gap: 2px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-primary);
   cursor: pointer;
@@ -923,7 +923,7 @@ body {
 .calendar-open-btn {
   margin-top: 12px;
   padding: 6px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-secondary);
@@ -1003,7 +1003,7 @@ body {
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
   background: var(--bg-card);
   cursor: pointer;
@@ -1073,7 +1073,7 @@ body {
 .timeline-preview-card {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: var(--radius-md);
   padding: 24px;
   max-width: 500px;
   width: 90%;
@@ -1109,7 +1109,7 @@ body {
 
 .timeline-preview-close {
   padding: 6px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-secondary);
@@ -1147,7 +1147,7 @@ body {
 .search-input {
   flex: 1;
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--bg-input);
   color: var(--text-primary);
@@ -1161,7 +1161,7 @@ body {
 
 .search-btn {
   padding: 8px 16px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   border: none;
   background: var(--accent);
   color: var(--accent-text);
@@ -1187,7 +1187,7 @@ body {
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   background: var(--bg-card);
   font-size: 13px;
 }
@@ -1225,7 +1225,7 @@ body {
   color: var(--text-tertiary);
   margin-top: 24px;
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: var(--bg-card);
   line-height: 1.5;
 }
@@ -1257,7 +1257,7 @@ body {
 
 .theme-toggle {
   padding: 6px 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--bg-card);
   color: var(--text-primary);

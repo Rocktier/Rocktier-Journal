@@ -22,6 +22,12 @@
   --dot: rgba(255, 255, 255, 0.55);
   --scrollbar: rgba(255, 255, 255, 0.1);
   --selection: rgba(255, 255, 255, 0.15);
+
+  /* ── Radius (family-aligned: sm 12 / md 20 / lg 28) ──────────── */
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+  --radius-pill: 999px;
 }
 
 [data-theme="light"] {
