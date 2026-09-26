@@ -306,6 +306,10 @@ body {
 
 /* ============ Sidebar ============ */
 
+.app-shell.sidebar-hidden .sidebar {
+  display: none;
+}
+
 .sidebar {
   display: flex;
   flex-direction: column;

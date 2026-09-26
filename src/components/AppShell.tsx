@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { listen } from "@tauri-apps/api/event";
 import Calendar from "./Calendar";
 import Editor from "./Editor";
 import Sidebar from "./Sidebar";
@@ -15,19 +16,32 @@ interface Props {
 export default function AppShell({ onLock }: Props) {
   const [view, setView] = useState<View>("today");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
     setView("today");
   };
 
+  // Toggle sidebar from menu bar
+  useEffect(() => {
+    const unlisten = listen("menu:toggle-sidebar", () => {
+      setSidebarVisible((v) => !v);
+    });
+    return () => {
+      unlisten.then((f) => f()).catch(() => {});
+    };
+  }, []);
+
   return (
-    <div className="app-shell">
-      <Sidebar
-        currentView={view}
-        onViewChange={setView}
-        onLock={onLock}
-      />
+    <div className={`app-shell${sidebarVisible ? "" : " sidebar-hidden"}`}>
+      {sidebarVisible && (
+        <Sidebar
+          currentView={view}
+          onViewChange={setView}
+          onLock={onLock}
+        />
+      )}
 
       <main className="app-main">
         {view === "today" && (
