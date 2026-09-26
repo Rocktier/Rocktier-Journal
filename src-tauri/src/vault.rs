@@ -387,10 +387,6 @@ pub fn export_vault(
         .map_err(|e| format!("Failed to create output file: {}", e))?;
     let mut zip = zip::ZipWriter::new(file);
 
-    let options = zip::write::FileOptions::<()>
-        .compression_method(zip::CompressionMethod::Deflated)
-        .unix_permissions(0o600);
-
     let mut count: u64 = 0;
 
     for entry in fs::read_dir(&entries_dir)
@@ -411,7 +407,9 @@ pub fn export_vault(
         let data = fs::read(&path)
             .map_err(|e| format!("Failed to read {}: {}", filename, e))?;
 
-        zip.start_file(filename, options)
+        zip.start_file(filename, zip::write::FileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated)
+            .unix_permissions(0o600))
             .map_err(|e| format!("Zip write error: {}", e))?;
         use std::io::Write;
         zip.write_all(&data)

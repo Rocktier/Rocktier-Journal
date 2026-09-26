@@ -6,7 +6,7 @@ import { clipboard } from "@milkdown/plugin-clipboard";
 import { listener, listenerCtx } from "@milkdown/plugin-listener";
 import { upload } from "@milkdown/plugin-upload";
 import { nord } from "@milkdown/theme-nord";
-import { ReactEditor, useEditor as useMilkdownEditor } from "@milkdown/react";
+import { Milkdown, useEditor as useMilkdownEditor } from "@milkdown/react";
 
 interface MilkdownEditorProps {
   content: string;
@@ -44,5 +44,5 @@ export default function MilkdownEditor({ content, onChange, placeholder }: Milkd
     return <div className="milkdown-loading" ref={containerRef}>Loading editor…</div>;
   }
 
-  return <ReactEditor ref={containerRef} />;
+  return <div ref={containerRef}><Milkdown /></div>;
 }

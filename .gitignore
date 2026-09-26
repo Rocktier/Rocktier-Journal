@@ -2,6 +2,9 @@
 node_modules/
 dist/
 .tauri-build/
+target/
+src-tauri/gen/
+src-tauri/src-tauri/
 *.local
 *.log
 npm-debug.log*

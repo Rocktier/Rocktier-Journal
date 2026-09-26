@@ -1,8 +1,8 @@
 use tauri::menu::{AboutMetadata, Menu, PredefinedMenuItem, Submenu};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 /// Build the standard Rocktier family application menu.
-pub fn build_app_menu(app: &mut AppHandle) -> Result<(), String> {
+pub fn build_app_menu(app: &AppHandle) -> Result<(), String> {
     let about = PredefinedMenuItem::about(
         app,
         Some("Rocktier Journal"),

@@ -1,4 +1,3 @@
-use tauri::Manager;
 
 mod crypto;
 mod menu;
@@ -10,7 +9,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            menu::build_app_menu(app)?;
+            menu::build_app_menu(&app.handle().clone())?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

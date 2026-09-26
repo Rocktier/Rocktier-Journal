@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/nicedoc/tauri/dev/.schema/config.schema.json",
+  "$schema": "https://schema.tauri.app/config/2.0.0-dev",
   "productName": "Rocktier Journal",
   "version": "0.1.0",
   "identifier": "com.rocktier.journal",
@@ -10,12 +10,11 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "title": "Rocktier Journal",
     "windows": [
       {
         "title": "Rocktier Journal",
         "width": 1100,
-        "height": 720",
+        "height": 720,
         "minWidth": 800,
         "minHeight": 600,
         "resizable": true,
@@ -24,10 +23,11 @@
     ],
     "security": {
       "csp": null,
-      "assetScope": [],
       "dangerousDisableAssetCspModification": false,
       "freezePrototype": false,
-      "pattern": { "use": "brownfield" }
+      "pattern": {
+        "use": "brownfield"
+      }
     }
   },
   "bundle": {
@@ -35,9 +35,9 @@
     "targets": "all",
     "icon": [],
     "category": "lifestyle",
-    "copyright": "Copyright © 2026 Rocktier",
+    "copyright": "Copyright \u00a9 2026 Rocktier",
     "externalBin": [],
-    "longDescription": "Rocktier Journal — a private diary. Encrypted. Offline. Yours alone.",
+    "longDescription": "Rocktier Journal \u2014 a private diary. Encrypted. Offline. Yours alone.",
     "shortDescription": "Private encrypted diary",
     "macOS": {
       "frameworks": [],
@@ -55,14 +55,19 @@
       "wix": null
     },
     "linux": {
-      "deb": { "depends": [] }
+      "deb": {
+        "depends": []
+      }
     },
-    "iOS": null,
-    "android": null
+    "iOS": {},
+    "android": {}
   },
   "plugins": {
     "fs": {
-      "scope": ["$APPLOCALDATA/**", "$DOCUMENT/**"]
+      "scope": [
+        "$APPLOCALDATA/**",
+        "$DOCUMENT/**"
+      ]
     }
   }
 }
