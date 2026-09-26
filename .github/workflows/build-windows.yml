@@ -1,0 +1,64 @@
+name: Build Windows
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      upload_release:
+        description: "Attach to GitHub Release (if tag)"
+        type: boolean
+        default: true
+
+jobs:
+  build-windows:
+    name: Build Windows x86_64 MSI
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+          cache-on-failure: true
+
+      - name: Install frontend deps
+        run: npm install --no-audit --no-fund
+
+      - name: Build Tauri MSI
+        uses: tauri-apps/tauri-action@v0.5
+        id: tauri_action
+        with:
+          tauriBuildFlags: ["--bundles", "msi"]
+          includeUpdater: false
+          includeDebug: false
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: "Rocktier Journal ${{ github.event.release.tag_name || github.ref_name }}"
+          releaseBody: "Windows x86_64 MSI installer for Rocktier Journal."
+          projectPath: "."
+          args: "--target x86_64-pc-windows-msvc"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Upload as artifact so non-tag builds are downloadable for testing
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rocktier-Journal-windows-x86_64-msi
+          path: |
+            src-tauri/target/release/bundle/msi/*.msi
+          if-no-files-found: error
+          retention-days: 14

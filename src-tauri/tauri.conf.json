@@ -33,7 +33,11 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": [],
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.ico",
+      "icons/icon.icns"
+    ],
     "category": "lifestyle",
     "copyright": "Copyright \u00a9 2026 Rocktier",
     "externalBin": [],
