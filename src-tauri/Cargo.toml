@@ -1,6 +1,6 @@
 [package]
 name = "rocktier-journal"
-version = "0.1.1"
+version = "0.2.0"
 description = "Rocktier Journal — a private diary. Encrypted. Offline. Yours alone."
 authors = ["Rocktier"]
 edition = "2021"
