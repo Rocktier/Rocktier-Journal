@@ -57,6 +57,7 @@ pub struct DiarySummary {
 
 // ---- Vault State ----
 
+#[derive(Default)]
 pub struct VaultState {
     pub key: Mutex<Option<[u8; crypto::KEY_LEN]>>,
     pub path: Mutex<Option<PathBuf>>,
@@ -246,7 +247,7 @@ fn init_vault_internal(
     // Generate and save salt
     let salt = crypto::generate_salt();
     let salt_path = vault_dir.join(SALT_FILENAME);
-    fs::write(&salt_path, &salt)
+    fs::write(&salt_path, salt)
         .map_err(|e| format!("Failed to write salt: {}", e))?;
 
     // Derive key from password + salt
@@ -656,7 +657,7 @@ fn count_words(markdown: &str) -> u32 {
                     // Read until ]
                     let mut link_text = String::new();
                     let mut found_end = false;
-                    while let Some(ch) = chars.next() {
+                    for ch in chars.by_ref() {
                         if ch == ']' {
                             found_end = true;
                             break;
@@ -666,7 +667,7 @@ fn count_words(markdown: &str) -> u32 {
                     if found_end && chars.peek() == Some(&'(') {
                         chars.next(); // skip (
                         // skip until )
-                        while let Some(ch) = chars.next() {
+                        for ch in chars.by_ref() {
                             if ch == ')' { break; }
                         }
                     }
