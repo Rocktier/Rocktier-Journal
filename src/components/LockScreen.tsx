@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useAuth } from "../hooks/useAuth";
+import { useAuth } from "../hooks/AuthContext";
 
 type Mode = "unlock" | "create" | "reset" | "forceCreate";
 
