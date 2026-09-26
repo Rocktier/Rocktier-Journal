@@ -14,6 +14,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             vault::delete_vault,
+            vault::get_hint,
             vault::check_vault_exists,
             vault::init_vault,
             vault::unlock_vault,

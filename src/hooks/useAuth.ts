@@ -6,6 +6,7 @@ export interface AuthState {
   hasVault: boolean;
   isUnlocking: boolean;
   error: string | null;
+  hint: string | null;
 }
 
 export function useAuth() {
@@ -14,6 +15,7 @@ export function useAuth() {
     hasVault: false,
     isUnlocking: false,
     error: null,
+    hint: null,
   });
 
   useEffect(() => {
@@ -22,21 +24,38 @@ export function useAuth() {
       .catch(() => {});
   }, []);
 
-  const resetVault = useCallback(async () => {
-    await invoke("delete_vault");
-    setState((s) => ({ ...s, hasVault: false, error: null }));
-  }, []);
-
-  const initVault = useCallback(async (password: string) => {
-    setState((s) => ({ ...s, isUnlocking: true, error: null }));
+  const fetchHint = useCallback(async () => {
     try {
-      await invoke("init_vault", { password });
-      setState((s) => ({ ...s, isAuthenticated: true, isUnlocking: false }));
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setState((s) => ({ ...s, isUnlocking: false, error: msg }));
+      const hint = await invoke<string | null>("get_hint");
+      setState((s) => ({ ...s, hint: hint ?? null }));
+      return hint ?? null;
+    } catch {
+      return null;
     }
   }, []);
+
+  const resetVault = useCallback(async (answer: string) => {
+    await invoke("delete_vault", { hintAnswer: answer });
+    setState((s) => ({ ...s, hasVault: false, error: null, hint: null }));
+  }, []);
+
+  const initVault = useCallback(
+    async (password: string, hintQuestion: string, hintAnswer: string) => {
+      setState((s) => ({ ...s, isUnlocking: true, error: null }));
+      try {
+        await invoke("init_vault", {
+          password,
+          hintQuestion,
+          hintAnswer,
+        });
+        setState((s) => ({ ...s, isAuthenticated: true, isUnlocking: false }));
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setState((s) => ({ ...s, isUnlocking: false, error: msg }));
+      }
+    },
+    []
+  );
 
   const unlock = useCallback(async (password: string) => {
     setState((s) => ({ ...s, isUnlocking: true, error: null }));
@@ -58,5 +77,5 @@ export function useAuth() {
     setState((s) => ({ ...s, isAuthenticated: false }));
   }, []);
 
-  return { ...state, initVault, unlock, lock, resetVault };
+  return { ...state, initVault, unlock, lock, resetVault, fetchHint };
 }

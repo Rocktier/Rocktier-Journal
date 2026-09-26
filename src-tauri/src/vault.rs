@@ -40,6 +40,8 @@ pub struct VaultMeta {
     pub version: u32,
     pub created_at: String,
     pub last_accessed: String,
+    pub hint_question: Option<String>,
+    pub hint_answer_hash: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -71,17 +73,67 @@ impl VaultState {
 
 // ---- Tauri Commands ----
 
-/// Delete the entire vault directory and clear runtime state.
+/// Get the stored hint question (if any) without unlocking.
 #[tauri::command]
-pub fn delete_vault(state: State<'_, VaultState>) -> Result<(), String> {
-    let path = state.path.lock().unwrap().clone();
-    if let Some(dir) = &path {
-        if dir.exists() {
-            fs::remove_dir_all(dir)
-                .map_err(|e| format!("Failed to delete vault: {}", e))?;
+pub fn get_hint(
+    app_handle: tauri::AppHandle,
+) -> Result<Option<String>, String> {
+    let app_dir = app_handle
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Cannot resolve app data dir: {}", e))?;
+    let vault_dir = app_dir.join(VAULT_DIRNAME);
+    let meta_path = vault_dir.join(META_FILENAME);
+
+    if !meta_path.exists() {
+        return Ok(None);
+    }
+
+    let bytes = fs::read(&meta_path)
+        .map_err(|e| format!("Failed to read meta: {}", e))?;
+    let meta: VaultMeta = serde_json::from_slice(&bytes)
+        .map_err(|e| format!("Failed to parse meta: {}", e))?;
+
+    Ok(meta.hint_question)
+}
+
+/// Delete the entire vault, but only if hint answer matches (when hint is set).
+#[tauri::command]
+pub fn delete_vault(
+    state: State<'_, VaultState>,
+    app_handle: tauri::AppHandle,
+    hint_answer: Option<String>,
+) -> Result<(), String> {
+    let app_dir = app_handle
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Cannot resolve app data dir: {}", e))?;
+    let vault_dir = app_dir.join(VAULT_DIRNAME);
+    let meta_path = vault_dir.join(META_FILENAME);
+
+    // If meta exists and has a hint, verify the answer before allowing delete
+    if meta_path.exists() {
+        let bytes = fs::read(&meta_path)
+            .map_err(|e| format!("Failed to read meta: {}", e))?;
+        let meta: VaultMeta = serde_json::from_slice(&bytes)
+            .map_err(|e| format!("Failed to parse meta: {}", e))?;
+
+        if let (Some(stored_hash), Some(provided)) = (&meta.hint_answer_hash, hint_answer) {
+            let provided_hash = crypto::hash_hint_answer(&provided);
+            if *stored_hash != provided_hash {
+                return Err("Incorrect hint answer".to_string());
+            }
         }
     }
+
+    if vault_dir.exists() {
+        fs::remove_dir_all(&vault_dir)
+            .map_err(|e| format!("Failed to delete vault: {}", e))?;
+    }
+
+    *state.key.lock().unwrap() = None;
     *state.path.lock().unwrap() = None;
+    *state.salt.lock().unwrap() = None;
     Ok(())
 }
 
@@ -95,9 +147,17 @@ pub fn init_vault(
     state: State<'_, VaultState>,
     app_handle: tauri::AppHandle,
     password: String,
+    hint_question: String,
+    hint_answer: String,
 ) -> Result<(), String> {
     if password.len() < 8 {
         return Err("Password must be at least 8 characters".to_string());
+    }
+    if hint_question.trim().is_empty() {
+        return Err("Hint question is required".to_string());
+    }
+    if hint_answer.trim().is_empty() {
+        return Err("Hint answer is required".to_string());
     }
 
     let app_dir = app_handle
@@ -127,11 +187,16 @@ pub fn init_vault(
     // Derive key from password + salt
     let key = crypto::derive_key(&password, &salt);
 
+    // Hash hint answer (case-insensitive, trimmed)
+    let answer_hash = crypto::hash_hint_answer(&hint_answer);
+
     // Save vault metadata
     let meta = VaultMeta {
         version: 1,
         created_at: chrono::Utc::now().to_rfc3339(),
         last_accessed: chrono::Utc::now().to_rfc3339(),
+        hint_question: Some(hint_question.trim().to_string()),
+        hint_answer_hash: Some(answer_hash),
     };
     let meta_json = serde_json::to_vec(&meta)
         .map_err(|e| format!("Failed to serialize meta: {}", e))?;

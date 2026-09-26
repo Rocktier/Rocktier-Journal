@@ -3,7 +3,7 @@ use aes_gcm::{
     Aes256Gcm, Nonce,
 };
 use pbkdf2::pbkdf2_hmac;
-use sha2::Sha256;
+use sha2::{Sha256, Digest};
 
 pub const PBKDF2_ITERATIONS: u32 = 200_000;
 pub const SALT_LEN: usize = 16;
@@ -36,6 +36,13 @@ pub fn encrypt(key: &[u8; KEY_LEN], plaintext: &[u8]) -> Result<Vec<u8>, String>
     out.extend_from_slice(&nonce_bytes);
     out.extend_from_slice(&ciphertext);
     Ok(out)
+}
+
+/// Hash a hint answer for storage (lowercase + trim + sha256 hex).
+pub fn hash_hint_answer(answer: &str) -> String {
+    let normalized = answer.trim().to_lowercase();
+    let hash = Sha256::digest(normalized.as_bytes());
+    hash.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
 pub fn decrypt(key: &[u8; KEY_LEN], data: &[u8]) -> Result<Vec<u8>, String> {
