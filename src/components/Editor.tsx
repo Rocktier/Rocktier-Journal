@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import JournalEditor from "./JournalEditor";
 import MoodPicker from "./MoodPicker";
@@ -18,22 +18,27 @@ interface Props {
   date: string;
 }
 
+type SaveStatus = "idle" | "saving" | "saved" | "unsaved";
+
 export default function Editor({ date }: Props) {
   const [content, setContent] = useState("");
   const [title, setTitle] = useState<string | undefined>(undefined);
   const [mood, setMood] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [dirty, setDirty] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Force remount editor when date changes
   const [editorKey, setEditorKey] = useState(0);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
     setEditorKey((k) => k + 1);
+    setSaveStatus("idle");
+    if (saveTimer.current) clearTimeout(saveTimer.current);
 
     invoke<DiaryEntry | null>("load_diary", { date })
       .then((entry) => {
@@ -49,6 +54,7 @@ export default function Editor({ date }: Props) {
           setMood(null);
         }
         setDirty(false);
+        setSaveStatus("saved");
         setLoading(false);
       })
       .catch((e: unknown) => {
@@ -74,6 +80,7 @@ export default function Editor({ date }: Props) {
 
   const handleSave = useCallback(async () => {
     setError(null);
+    setSaveStatus("saving");
     try {
       await invoke("save_diary", {
         date,
@@ -83,20 +90,35 @@ export default function Editor({ date }: Props) {
         customMood: mood === "custom" ? null : null,
         images: [],
       });
-      setSaved(true);
+      setSaveStatus("saved");
       setDirty(false);
-      setTimeout(() => setSaved(false), 2500);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
+      setSaveStatus("unsaved");
     }
   }, [date, title, content, mood]);
 
-  // Listen for Cmd/Ctrl+S
+  // Auto-save: debounced 800ms after last dirty change
+  useEffect(() => {
+    if (!dirty) return;
+    setSaveStatus("unsaved");
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      handleSave();
+    }, 800);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [content, title, mood]);
+
+  // Listen for Cmd/Ctrl+S (immediate save, bypass debounce)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "s") {
         e.preventDefault();
+        if (saveTimer.current) clearTimeout(saveTimer.current);
         handleSave();
       }
     };
@@ -119,11 +141,11 @@ export default function Editor({ date }: Props) {
         <MoodPicker selected={mood} onSelect={setMood} />
         <button
           onClick={handleSave}
-          disabled={!dirty && !saved}
-          className={`editor-save ${saved ? "saved" : ""} ${dirty ? "dirty" : ""}`}
+          disabled={!dirty && saveStatus === "idle"}
+          className={`editor-save ${saveStatus === "saved" ? "saved" : ""} ${dirty && saveStatus !== "saving" ? "dirty" : ""}`}
           title="Save (Ctrl/Cmd+S)"
         >
-          {saved ? "Saved ✓" : dirty ? "Save •" : "Save"}
+          {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved ✓" : dirty ? "Save •" : "Save"}
         </button>
       </div>
 
@@ -152,6 +174,13 @@ export default function Editor({ date }: Props) {
         <span className="editor-wordcount">
           {wordCount} words · {charCount} chars
         </span>
+        <span className="editor-save-status">
+          {saveStatus === "saving" && <span className="sv-saving">Saving…</span>}
+          {saveStatus === "saved" && <span className="sv-saved">Saved ✓</span>}
+          {saveStatus === "unsaved" && dirty && (
+            <span className="sv-unsaved">Unsaved · auto-saves</span>
+          )}
+        </span>
         {error && <span className="editor-error">{error}</span>}
       </div>
     </div>
@@ -168,10 +197,18 @@ function formatDate(iso: string): string {
   });
 }
 
+/**
+ * Count words — CJK characters count 1 each; Latin runs split on whitespace.
+ * e.g. "你好 world" → 3 (你 + 好 + world)
+ */
 function countWords(html: string): number {
   const text = stripHtml(html);
   if (!text.trim()) return 0;
-  return text.split(/\s+/).length;
+  // Count CJK chars individually
+  const cjk = (text.match(/[一-鿿]/g) || []).length;
+  // Count non-CJK word runs (whitespace-delimited, ignoring CJK-adjacent spaces)
+  const latin = text.replace(/[一-鿿]/g, " ").split(/\s+/).filter(Boolean).length;
+  return cjk + latin;
 }
 
 /** Convert legacy plain-text / markdown into styled HTML paragraphs. */

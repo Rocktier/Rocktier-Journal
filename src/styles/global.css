@@ -90,6 +90,14 @@ body {
   margin-bottom: 16px;
 }
 
+.lock-tagline {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  margin-bottom: 20px;
+  letter-spacing: 0.04em;
+}
+
 .lock-form {
   display: flex;
   flex-direction: column;
@@ -252,6 +260,13 @@ body {
   color: var(--text-primary);
 }
 
+.sidebar-tagline {
+  padding: 0 20px 12px;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.05em;
+}
+
 .sidebar-nav {
   list-style: none;
   flex: 1;
@@ -387,22 +402,25 @@ body {
 
 .editor-title-input {
   width: 100%;
-  padding: 6px 0;
+  padding: 8px 0;
   border: none;
   border-bottom: 1px solid transparent;
   background: transparent;
-  color: var(--text-secondary);
-  font-size: 14px;
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   outline: none;
   transition: border-color 0.15s;
 }
 
 .editor-title-input:focus {
-  border-bottom-color: var(--border);
+  border-bottom-color: var(--accent);
 }
 
 .editor-title-input::placeholder {
   color: var(--text-tertiary);
+  font-weight: 500;
 }
 
 .editor-save {
@@ -457,6 +475,17 @@ body {
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
+
+.editor-save-status {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  min-width: 120px;
+  text-align: center;
+}
+.sv-saving { color: var(--text-secondary); }
+.sv-saved { color: var(--success); }
+.sv-unsaved { color: var(--text-tertiary); }
 
 .editor-error {
   font-size: 12px;
@@ -533,18 +562,23 @@ body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  cursor: text;
 }
 
 /* Tiptap's ProseMirror root */
 .ProseMirror {
   outline: none;
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 100%;
   padding: 28px 32px 64px;
   font-size: 15px;
   line-height: 1.8;
   color: var(--text-primary);
   white-space: pre-wrap;
   word-wrap: break-word;
+  box-sizing: border-box;
 }
 .ProseMirror p { margin: 0 0 12px 0; }
 .ProseMirror p:last-child { margin-bottom: 0; }

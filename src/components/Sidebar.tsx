@@ -1,4 +1,5 @@
 import { useTheme } from "../hooks/useTheme";
+import JnLogo from "./JnLogo";
 
 interface Props {
   currentView: string;
@@ -20,9 +21,10 @@ export default function Sidebar({ currentView, onViewChange, onLock }: Props) {
   return (
     <nav className="sidebar">
       <div className="sidebar-header">
-        <span className="brand-dot small" />
+        <JnLogo size={28} />
         <span className="sidebar-brand">Journal</span>
       </div>
+      <div className="sidebar-tagline">Offline is the best safety</div>
 
       <ul className="sidebar-nav">
         {navItems.map((item) => (

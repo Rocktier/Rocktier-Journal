@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../hooks/AuthContext";
+import JnLogo from "./JnLogo";
 
 type Mode = "unlock" | "reset" | "forceCreate";
 
@@ -109,8 +110,9 @@ export default function LockScreen() {
   return (
     <div className="lock-screen">
       <div className="lock-card">
-        <div className="brand-dot" />
+        <JnLogo size={48} />
         <h1 className="lock-title">Rocktier Journal</h1>
+        <p className="lock-tagline">Offline is the best safety</p>
 
         {/* UNLOCK */}
         {mode === "unlock" && (

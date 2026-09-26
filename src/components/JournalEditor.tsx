@@ -224,10 +224,32 @@ export default function JournalEditor({ content, onChange }: Props) {
     }
   }, [content, editor]);
 
+  // Clicking empty space in the editor should move the caret there
+  const handleScrollClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!editor || e.target === e.currentTarget) {
+        // Click landed on the scroll container (padding/empty area) — focus end
+        editor.chain().focus("end").run();
+        return;
+      }
+      // Click was on ProseMirror itself or a child — Tiptap handles it.
+      // But if it's padding below content, Tiptap may not place the caret
+      // correctly, so handle clicks below the last paragraph.
+      const pm = e.currentTarget.querySelector(".ProseMirror");
+      if (!pm || !editor) return;
+      const rect = pm.getBoundingClientRect();
+      const afterContent = e.clientY > rect.bottom - 28; // last-line padding
+      if (afterContent) {
+        editor.chain().focus("end").run();
+      }
+    },
+    [editor]
+  );
+
   return (
     <div className="jeditor">
       <Toolbar editor={editor} />
-      <div className="jeditor-scroll">
+      <div className="jeditor-scroll" onClick={handleScrollClick}>
         <EditorContent editor={editor} />
       </div>
     </div>
