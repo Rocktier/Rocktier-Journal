@@ -71,6 +71,20 @@ impl VaultState {
 
 // ---- Tauri Commands ----
 
+/// Delete the entire vault directory and clear runtime state.
+#[tauri::command]
+pub fn delete_vault(state: State<'_, VaultState>) -> Result<(), String> {
+    let path = state.path.lock().unwrap().clone();
+    if let Some(dir) = &path {
+        if dir.exists() {
+            fs::remove_dir_all(dir)
+                .map_err(|e| format!("Failed to delete vault: {}", e))?;
+        }
+    }
+    *state.path.lock().unwrap() = None;
+    Ok(())
+}
+
 #[tauri::command]
 pub fn check_vault_exists(state: State<'_, VaultState>) -> bool {
     state.path.lock().unwrap().is_some()

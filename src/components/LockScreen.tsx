@@ -2,11 +2,12 @@ import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../hooks/useAuth";
 
 export default function LockScreen() {
-  const { hasVault, initVault, unlock, isUnlocking, error } = useAuth();
+  const { hasVault, initVault, unlock, isUnlocking, resetVault, error } = useAuth();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
   const passwordRef = useRef<HTMLInputElement | null>(null);
 
   const isCreating = !hasVault;
@@ -18,6 +19,7 @@ export default function LockScreen() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
+    setConfirmReset(false);
 
     if (!password) {
       setLocalError("Please enter a password.");
@@ -37,6 +39,18 @@ export default function LockScreen() {
     } else {
       await unlock(password);
     }
+  };
+
+  const handleReset = async () => {
+    setLocalError(null);
+    if (!confirmReset) {
+      setConfirmReset(true);
+      return;
+    }
+    await resetVault();
+    setPassword("");
+    setConfirmPassword("");
+    setConfirmReset(false);
   };
 
   return (
@@ -92,16 +106,12 @@ export default function LockScreen() {
 
         <button
           type="button"
-          className="lock-forgot"
-          onClick={() => {
-            setLocalError(
-              "If you forgot your password, your diary cannot be recovered. " +
-              "All data is encrypted locally. You may delete the vault folder " +
-              "in your app data directory and create a new one."
-            );
-          }}
+          className={`lock-forgot${confirmReset ? " danger" : ""}`}
+          onClick={handleReset}
         >
-          Forgot password?
+          {confirmReset
+            ? "⚠️ Click again to erase diary & reset"
+            : "Forgot password?"}
         </button>
 
         {(error || localError) && (

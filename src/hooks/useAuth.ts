@@ -18,8 +18,13 @@ export function useAuth() {
 
   useEffect(() => {
     invoke<boolean>("check_vault_exists")
-      .then((hasVault) => setState((s) => ({ ...s, hasVault })))
+      .then((hasVault) => setState((s) => ({ ...s, hasVault: hasVault })))
       .catch(() => {});
+  }, []);
+
+  const resetVault = useCallback(async () => {
+    await invoke("delete_vault");
+    setState((s) => ({ ...s, hasVault: false, error: null }));
   }, []);
 
   const initVault = useCallback(async (password: string) => {
@@ -53,5 +58,5 @@ export function useAuth() {
     setState((s) => ({ ...s, isAuthenticated: false }));
   }, []);
 
-  return { ...state, initVault, unlock, lock };
+  return { ...state, initVault, unlock, lock, resetVault };
 }
