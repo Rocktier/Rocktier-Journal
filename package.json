@@ -1,7 +1,7 @@
 {
   "name": "rocktier-journal",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Rocktier Journal — a private diary. Encrypted. Offline. Yours alone.",
   "type": "module",
   "scripts": {
