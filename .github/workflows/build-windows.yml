@@ -32,15 +32,11 @@ jobs:
       - name: Install frontend deps
         run: npm install --no-audit --no-fund
 
-      - name: Build frontend
-        run: npm run build
-
       - name: Build MSI
         uses: tauri-apps/tauri-action@v0.5
         id: tauri_action
         with:
-          args: "--target x86_64-pc-windows-msvc"
-          tauriBuildFlags: "--bundles msi"
+          args: "--bundles msi --target x86_64-pc-windows-msvc"
           projectPath: "."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
