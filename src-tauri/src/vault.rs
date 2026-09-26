@@ -9,10 +9,12 @@ use crate::crypto;
 const VAULT_DIRNAME: &str = ".rocktier-journal";
 const SALT_FILENAME: &str = "vault.salt";
 const META_FILENAME: &str = "vault.meta";
+const VERIFIER_FILENAME: &str = "vault.verifier";
 const ENTRIES_DIR: &str = "entries";
 const IMAGES_DIR: &str = "images";
 const RKD_MAGIC: &[u8] = b"RKDJ";
 const RKD_VERSION: u32 = 1;
+const VERIFIER_PLAINTEXT: &[u8] = b"ROCKTIER_VAULT_OK";
 
 // ---- Data Structures ----
 
@@ -263,6 +265,13 @@ fn init_vault_internal(
     fs::write(&meta_path, &meta_json)
         .map_err(|e| format!("Failed to write meta: {}", e))?;
 
+    // Write encrypted verifier so we can validate password on unlock
+    let verifier_encrypted = crypto::encrypt(&key, VERIFIER_PLAINTEXT)
+        .map_err(|e| format!("Failed to write verifier: {}", e))?;
+    let verifier_path = vault_dir.join(VERIFIER_FILENAME);
+    fs::write(&verifier_path, &verifier_encrypted)
+        .map_err(|e| format!("Failed to write verifier: {}", e))?;
+
     // Update state
     *state.key.lock().unwrap() = Some(key);
     *state.path.lock().unwrap() = Some(vault_dir);
@@ -300,10 +309,16 @@ pub fn unlock_vault(
     // Derive key
     let key = crypto::derive_key(&password, &salt);
 
-    // Verify by checking meta file exists (proves vault integrity)
-    let meta_path = vault_dir.join(META_FILENAME);
-    let _meta_bytes = fs::read(&meta_path)
-        .map_err(|e| format!("Vault metadata missing or corrupted: {}", e))?;
+    // Verify password by decrypting verifier (AES-GCM tag check fails on wrong key)
+    let verifier_path = vault_dir.join(VERIFIER_FILENAME);
+    if verifier_path.exists() {
+        let verifier_encrypted = fs::read(&verifier_path)
+            .map_err(|e| format!("Failed to read verifier: {}", e))?;
+        match crypto::decrypt(&key, &verifier_encrypted) {
+            Ok(plaintext) if plaintext == VERIFIER_PLAINTEXT => { /* ok */ }
+            _ => return Err("Incorrect password".to_string()),
+        }
+    }
 
     // Update state
     *state.key.lock().unwrap() = Some(key);
