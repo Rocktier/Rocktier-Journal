@@ -15,3 +15,7 @@ npm-debug.log*
 .idea/
 *.swp
 *.swo
+
+# MSIX 输入模板（AppxManifest + Assets + bundle.config）必须入库；
+# schemas/ 由 tauri CLI 按 capabilitiy 配置再生，不入库。
+src-tauri/gen/schemas/
