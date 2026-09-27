@@ -16,6 +16,11 @@ const RKD_MAGIC: &[u8] = b"RKDJ";
 const RKD_VERSION: u32 = 1;
 const VERIFIER_PLAINTEXT: &[u8] = b"ROCKTIER_VAULT_OK";
 
+/// Per-process sequence for temp file names (same as MD's TMP_SEQ): the PID
+/// alone is constant for the life of the process, so two saves racing would
+/// share one temp name and truncate each other.
+static TMP_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
 // ---- Data Structures ----
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -391,13 +396,39 @@ pub fn save_diary(
             .map_err(|e| format!("Failed to create entries dir: {}", e))?;
     }
 
-    // Write atomically: temp file → rename
+    // Write atomically: temp file → rename. Backported from Rocktier MD's
+    // write_atomically (family reference impl): the previous fixed ".tmp" name
+    // let two racing saves / two instances truncate each other and left
+    // orphans behind, and without fsync the rename only published the name —
+    // a power loss still left a zero-length entry. A per-process sequence
+    // number makes every write its own temp file.
     let entry_path = entries_dir.join(format!("{}.rkd", date));
-    let temp_path = entry_path.with_extension("tmp");
-    fs::write(&temp_path, &rkd_data)
-        .map_err(|e| format!("Failed to write temp entry: {}", e))?;
-    fs::rename(&temp_path, &entry_path)
-        .map_err(|e| format!("Failed to write entry: {}", e))?;
+    let temp_path = entries_dir.join(format!(
+        ".{}.{}.{}.tmp",
+        date,
+        std::process::id(),
+        TMP_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    ));
+    {
+        use std::io::Write as _;
+        let mut f = fs::File::create(&temp_path)
+            .map_err(|e| format!("Failed to create temp entry: {}", e))?;
+        f.write_all(&rkd_data)
+            .map_err(|e| format!("Failed to write temp entry: {}", e))?;
+        f.sync_all()
+            .map_err(|e| format!("Failed to sync temp entry: {}", e))?;
+    }
+    if let Err(e) = fs::rename(&temp_path, &entry_path) {
+        let _ = fs::remove_file(&temp_path);
+        return Err(format!("Failed to write entry: {}", e));
+    }
+    // Persist the rename itself so the directory entry survives a crash too.
+    #[cfg(unix)]
+    {
+        if let Ok(d) = fs::File::open(&entries_dir) {
+            let _ = d.sync_all();
+        }
+    }
 
     Ok(())
 }

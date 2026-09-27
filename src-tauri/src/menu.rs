@@ -1,20 +1,17 @@
-use std::process::Stdio;
 use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Emitter};
+use tauri_plugin_opener::OpenerExt;
 
-/// Open a URL or mailto: link using the platform shell command.
-fn open_external(url: &str) {
-    #[cfg(target_os = "macos")]
-    let _ = std::process::Command::new("open").arg(url).stdin(Stdio::null()).spawn();
-
-    #[cfg(target_os = "windows")]
-    let _ = std::process::Command::new("cmd")
-        .args(["/C", "start", "", url])
-        .stdin(Stdio::null())
-        .spawn();
-
-    #[cfg(target_os = "linux")]
-    let _ = std::process::Command::new("xdg-open").arg(url).stdin(Stdio::null()).spawn();
+/// Open a URL or mailto: link — whitelist only (family rule). Previously this
+/// hand-rolled `open`/`cmd /C start`/`xdg-open` via std::process: no whitelist
+/// at all, and the Windows branch launched without quoting the argument.
+fn open_extern(app: &AppHandle, url: &str) {
+    const ALLOWED: [&str; 3] =
+        ["https://rocktier.com/", "https://www.rocktier.com/", "mailto:"];
+    if !ALLOWED.iter().any(|p| url.starts_with(p)) {
+        return;
+    }
+    let _ = app.opener().open_url(url, None::<&str>);
 }
 
 /// Build the standard Rocktier family application menu.
@@ -72,7 +69,8 @@ pub fn build_app_menu(app: &AppHandle) -> Result<(), String> {
         "display_toggle_sidebar",
         "Toggle Sidebar",
         true,
-        Some("b"),
+        // 准则 §13：显示菜单不给单键快捷键（b 是日记正文最高频字母）
+        None::<&str>,
     )
     .map_err(|e| e.to_string())?;
 
@@ -81,7 +79,7 @@ pub fn build_app_menu(app: &AppHandle) -> Result<(), String> {
         "display_toggle_theme",
         "Toggle Theme",
         true,
-        Some("t"),
+        None::<&str>,
     )
     .map_err(|e| e.to_string())?;
 
@@ -113,7 +111,7 @@ pub fn build_app_menu(app: &AppHandle) -> Result<(), String> {
         MenuItem::with_id(app, "help_feedback", "Send Feedback", true, None::<&str>)
             .map_err(|e| e.to_string())?;
 
-    let help_help = MenuItem::with_id(app, "help_help", "Rocktier Journal Help", true, Some("?"))
+    let help_help = MenuItem::with_id(app, "help_help", "Rocktier Journal Help", true, None::<&str>)
         .map_err(|e| e.to_string())?;
 
     let help_menu = Submenu::with_items(
@@ -144,12 +142,13 @@ pub fn build_app_menu(app: &AppHandle) -> Result<(), String> {
     let app_handle = app.clone();
     app.on_menu_event(move |_, event| {
         match event.id().as_ref() {
-            "help_website" => open_external("https://rocktier.com"),
-            "help_contact" => open_external("mailto:danglei1024@gmail.com"),
+            "help_website" => open_extern(&app_handle, "https://rocktier.com"),
+            // 家族统一 hello@（其余 14 处外链全是它；danglei1024@gmail.com 是个人地址）
+            "help_contact" => open_extern(&app_handle, "mailto:hello@rocktier.com"),
             "help_feedback" => {
-                open_external("mailto:danglei1024@gmail.com?subject=Rocktier%20Journal%20Feedback")
+                open_extern(&app_handle, "mailto:hello@rocktier.com?subject=Rocktier%20Journal%20Feedback")
             }
-            "help_help" => open_external("https://rocktier.com/journal/help"),
+            "help_help" => open_extern(&app_handle, "https://rocktier.com/journal/help"),
             "display_toggle_sidebar" => {
                 let _ = app_handle.emit("menu:toggle-sidebar", ());
             }

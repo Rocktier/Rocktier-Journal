@@ -9,7 +9,12 @@ interface DiarySummary {
   mood: string | null;
 }
 
-export default function SearchView() {
+interface Props {
+  /** 点结果行 = 选该日期并回到今日视图（与日历同一条 handleDateSelect 路） */
+  onSelect: (date: string) => void;
+}
+
+export default function SearchView({ onSelect }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<DiarySummary[]>([]);
   const [searched, setSearched] = useState(false);
@@ -79,7 +84,20 @@ export default function SearchView() {
       {results.length > 0 && (
         <ul className="search-results">
           {results.map((r) => (
-            <li key={r.date} className="search-result-item">
+            <li
+              key={r.date}
+              className="search-result-item"
+              role="button"
+              tabIndex={0}
+              title={formatDate(r.date)}
+              onClick={() => onSelect(r.date)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelect(r.date);
+                }
+              }}
+            >
               <span className="search-result-date">{formatDate(r.date)}</span>
               {r.title && <span className="search-result-title">{r.title}</span>}
               <span className="search-result-words">{r.word_count} words</span>

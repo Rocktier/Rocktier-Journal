@@ -1,8 +1,21 @@
 import { useState, useRef, useEffect } from "react";
+import { ask } from "@tauri-apps/plugin-dialog";
 import { useAuth } from "../hooks/AuthContext";
 import JnLogo from "./JnLogo";
 
 type Mode = "unlock" | "reset" | "forceCreate";
+
+/**
+ * Native warning dialog in Tauri, window.confirm in browser-only dev mode.
+ * Same helper family as Rocktier Write's services/file.ts confirmDialog.
+ */
+async function confirmDestructive(message: string): Promise<boolean> {
+  try {
+    return await ask(message, { title: "Rocktier Journal", kind: "warning" });
+  } catch {
+    return window.confirm(message);
+  }
+}
 
 /**
  * Pure authentication gate — only rendered when a vault already exists.
@@ -79,6 +92,11 @@ export default function LockScreen() {
     e.preventDefault();
     setLocalError(null);
     if (!hintAnswer.trim()) return setLocalError("Please enter your hint answer.");
+    // 不可逆销毁：先确认（此前点一下就没了）
+    const ok = await confirmDestructive(
+      "This erases the entire vault — every entry, image and the password. This cannot be undone. Continue?"
+    );
+    if (!ok) return;
     try {
       await resetVault(hintAnswer.trim());
       // After reset, App.tsx sees hasVault=false → switches to SetupScreen
@@ -98,6 +116,11 @@ export default function LockScreen() {
     if (password !== confirmPassword) return setLocalError("Passwords do not match.");
     if (!hintQuestion.trim()) return setLocalError("Please set a hint question.");
     if (!hintAnswer.trim()) return setLocalError("Please set a hint answer.");
+    // 不可逆销毁：先确认（与 reset 同一条守卫）
+    const ok = await confirmDestructive(
+      "This erases the entire vault — every entry, image and the password. This cannot be undone. Continue?"
+    );
+    if (!ok) return;
     await forceCreateVault(password, hintQuestion.trim(), hintAnswer.trim());
   };
 

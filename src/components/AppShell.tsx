@@ -51,7 +51,7 @@ export default function AppShell({ onLock }: Props) {
           <Calendar onDateSelect={handleDateSelect} />
         )}
         {view === "timeline" && <Timeline />}
-        {view === "search" && <SearchView />}
+        {view === "search" && <SearchView onSelect={handleDateSelect} />}
         {view === "settings" && <Settings />}
       </main>
     </div>
@@ -59,5 +59,10 @@ export default function AppShell({ onLock }: Props) {
 }
 
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  // 本地日期，不能用 toISOString()——它以 UTC 计算，上午（UTC+8 的
+  // 00:00–08:00）会把今天的日记落到昨天。App 内两处「今天」曾各算各的，
+  // 现在统一走这里。
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }

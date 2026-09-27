@@ -8,6 +8,24 @@
   padding: 0;
 }
 
+/* 键盘焦点环：accent 单色（深色 #fff / 浅色 #000），两主题都 ≥19.8:1。
+   规范 §7 的写法；此前全仓没有任何 focus-visible 样式（J-P1-11）。 */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 html,
 body,
 #root {
@@ -610,7 +628,8 @@ body {
 }
 .tbar-btn.is-active {
   background: var(--accent);
-  color: #fff;
+  /* --accent 是单色（深 #fff / 浅 #000），#fff 在默认深色主题下白底白字 1.00:1 */
+  color: var(--accent-text);
 }
 .tbar-btn:disabled {
   opacity: 0.35;
@@ -1194,6 +1213,12 @@ body {
   border-radius: var(--radius-sm);
   background: var(--bg-card);
   font-size: 13px;
+  cursor: pointer;
+}
+
+.search-result-item:hover {
+  background: var(--bg-card-hover, var(--bg-elevated));
+  color: var(--text-primary);
 }
 
 .search-result-date {
