@@ -3,6 +3,7 @@
   "productName": "Rocktier Journal",
   "version": "0.2.1",
   "identifier": "com.rocktier.journal",
+  "mainBinaryName": "RocktierJournal",
   "build": {
     "beforeBuildCommand": "npm run build",
     "beforeDevCommand": "npm run dev",
