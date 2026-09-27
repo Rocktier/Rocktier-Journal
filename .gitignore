@@ -3,7 +3,8 @@ node_modules/
 dist/
 .tauri-build/
 target/
-src-tauri/gen/
+# src-tauri/gen/ 不再忽略：MSIX 输入模板（AppxManifest + Assets + bundle.config）
+# 必须随仓库走，否则 CI 的 tauri:windows:build 无清单可打。
 src-tauri/src-tauri/
 *.local
 *.log
