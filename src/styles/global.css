@@ -39,6 +39,7 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -408,6 +409,17 @@ body {
 .sidebar-item.active {
   background: var(--bg-card);
   color: var(--accent);
+}
+
+/* 选中条目行尾实心红点（7E Phase 1 红点语言试点） */
+.sidebar-item.active::after {
+  content: "";
+  flex-shrink: 0;
+  margin-left: auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--red);
 }
 
 .sidebar-icon {
@@ -790,9 +802,21 @@ body {
   background: var(--bg-card-hover);
 }
 
+/* 红点选中态（7E Phase 1）：当前心情以红色描边 + 行尾实心红点标识，
+   与底色/文字变化并存，非唯一信号（a11y 冗余） */
 .mood-btn.active {
-  border-color: var(--accent);
+  border-color: var(--red);
   background: var(--accent-glow);
+}
+
+.mood-btn.active::after {
+  content: "";
+  flex-shrink: 0;
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
 }
 
 /* ============ Calendar ============ */
@@ -910,17 +934,19 @@ body {
   font-size: 14px;
 }
 
+/* 情绪日历 → 密度红点热力图（7E Phase 1）：有数据红点、无数据空，
+   红色随记录字数加深；--dot（0.55 白）保留给密码强度等强信号位 */
 .calendar-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--text-tertiary);
+  background: var(--red);
+  opacity: 0.35;
 }
 
-.calendar-dot.density-1 { background: var(--accent); opacity: 0.35; }
-.calendar-dot.density-2 { background: var(--accent); opacity: 0.6; }
-.calendar-dot.density-3 { background: var(--accent); opacity: 0.85; }
-.calendar-dot.density-4 { background: var(--red); opacity: 1; }
+.calendar-dot.density-2 { opacity: 0.6; }
+.calendar-dot.density-3 { opacity: 0.85; }
+.calendar-dot.density-4 { opacity: 1; }
 
 .calendar-mood {
   font-size: 9px;
@@ -1004,6 +1030,27 @@ body {
   color: var(--text-tertiary);
   font-size: 13px;
   margin-top: 12px;
+}
+
+/* 空态点阵（家族 motif，audit 7B-1；对齐 MD/Write 空态配方） */
+.timeline-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 280px;
+  padding: 40px 24px;
+  text-align: center;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-card);
+  background-image: var(--dot-pattern);
+  background-size: var(--dot-size) var(--dot-size);
+}
+
+.timeline-empty .placeholder {
+  font-size: 12px;
+  opacity: 0.75;
 }
 
 .timeline-loading {
