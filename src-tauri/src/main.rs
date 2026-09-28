@@ -10,10 +10,12 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            menu::build_app_menu(&app.handle().clone())?;
+            // 初建用英文；前端挂载后会按持久化语言调 build_menu 重建（MD 同款模式）
+            menu::build_app_menu(&app.handle().clone(), "en")?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            menu::build_menu,
             vault::force_create_vault,
             vault::delete_vault,
             vault::get_hint,

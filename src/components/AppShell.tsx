@@ -33,6 +33,16 @@ export default function AppShell({ onLock }: Props) {
     };
   }, []);
 
+  // Lock vault from menu bar (File → Lock Vault)
+  useEffect(() => {
+    const unlisten = listen("menu:lock-vault", () => {
+      onLock();
+    });
+    return () => {
+      unlisten.then((f) => f()).catch(() => {});
+    };
+  }, [onLock]);
+
   return (
     <div className={`app-shell${sidebarVisible ? "" : " sidebar-hidden"}`}>
       {sidebarVisible && (
