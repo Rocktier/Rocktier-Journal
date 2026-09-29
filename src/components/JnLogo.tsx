@@ -34,7 +34,7 @@ export default function JnLogo({ size = 32 }: Props) {
         fontFamily="'Geist', -apple-system, BlinkMacSystemFont, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif"
         fontSize="14"
         fontWeight="700"
-        fill="var(--accent-text)"
+        fill="var(--on-accent)"
       >
         JN
       </text>

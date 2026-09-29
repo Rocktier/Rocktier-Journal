@@ -98,7 +98,7 @@ body {
   height: 12px;
   border-radius: 50%;
   background: var(--red);
-  animation: pulse 2.5s ease-in-out infinite;
+  animation: pulse 3s ease-in-out infinite;
 }
 
 .brand-dot.small {
@@ -108,8 +108,8 @@ body {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 0.7; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.15); }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .lock-title {
@@ -239,7 +239,7 @@ body {
   border-radius: var(--radius-sm);
   border: none;
   background: var(--accent);
-  color: var(--accent-text);
+  color: var(--on-accent);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -312,7 +312,7 @@ body {
 
 .lock-btn.danger {
   background: var(--danger);
-  color: var(--accent-text);
+  color: var(--on-accent);
 }
 
 .lock-cancel {
@@ -549,7 +549,7 @@ body {
   border-radius: var(--radius-sm);
   border: none;
   background: var(--accent);
-  color: var(--accent-text);
+  color: var(--on-accent);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
@@ -657,7 +657,7 @@ body {
 .tbar-btn.is-active {
   background: var(--accent);
   /* --accent 是单色（深 #fff / 浅 #000），#fff 在默认深色主题下白底白字 1.00:1 */
-  color: var(--accent-text);
+  color: var(--on-accent);
 }
 .tbar-btn:disabled {
   opacity: 0.35;
@@ -923,7 +923,7 @@ body {
 
 .calendar-cell.selected {
   background: var(--accent);
-  color: var(--accent-text);
+  color: var(--on-accent);
 }
 
 .calendar-cell.has-entry {
@@ -1250,7 +1250,7 @@ body {
   border-radius: var(--radius-sm);
   border: none;
   background: var(--accent);
-  color: var(--accent-text);
+  color: var(--on-accent);
   font-size: 13px;
   cursor: pointer;
 }
