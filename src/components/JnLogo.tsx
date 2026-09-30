@@ -8,38 +8,13 @@ interface Props {
  */
 export default function JnLogo({ size = 32 }: Props) {
   return (
-    <svg
+    <img
+      src="/favicon.png"
       width={size}
       height={size}
-      viewBox="0 0 32 32"
-      xmlns="http://www.w3.org/2000/svg"
       role="img"
-      aria-label="JN — Rocktier Journal"
-    >
-      {/* Background rounded-square */}
-      <rect
-        x="2"
-        y="2"
-        width="28"
-        height="28"
-        rx="7"
-        ry="7"
-        fill="var(--accent)"
-      />
-      {/* JN monogram */}
-      <text
-        x="16"
-        y="21"
-        textAnchor="middle"
-        fontFamily="'Geist', -apple-system, BlinkMacSystemFont, 'SF Pro Rounded', 'Segoe UI', system-ui, sans-serif"
-        fontSize="14"
-        fontWeight="700"
-        fill="var(--on-accent)"
-      >
-        JN
-      </text>
-      {/* Rocktier signature red dot */}
-      <circle cx="25" cy="7" r="3" fill="var(--red)" />
-    </svg>
+      aria-label="Rocktier Journal"
+      alt="Rocktier Journal"
+    />
   );
 }
