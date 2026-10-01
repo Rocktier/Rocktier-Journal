@@ -1,3 +1,4 @@
+import { t } from "../i18n";
 
 interface Props {
   selected: string | null;
@@ -5,12 +6,12 @@ interface Props {
 }
 
 const MOODS = [
-  { key: "happy", emoji: "😀", label: "Happy" },
-  { key: "neutral", emoji: "😐", label: "Neutral" },
-  { key: "sad", emoji: "😢", label: "Sad" },
-  { key: "angry", emoji: "😡", label: "Angry" },
-  { key: "tired", emoji: "😴", label: "Tired" },
-  { key: "custom", emoji: "❓", label: "Custom" },
+  { key: "happy", emoji: "😀" },
+  { key: "neutral", emoji: "😐" },
+  { key: "sad", emoji: "😢" },
+  { key: "angry", emoji: "😡" },
+  { key: "tired", emoji: "😴" },
+  { key: "custom", emoji: "❓" },
 ];
 
 export default function MoodPicker({ selected, onSelect }: Props) {
@@ -21,7 +22,7 @@ export default function MoodPicker({ selected, onSelect }: Props) {
           key={m.key}
           className={`mood-btn ${selected === m.key ? "active" : ""}`}
           onClick={() => onSelect(selected === m.key ? null : m.key)}
-          title={m.label}
+          title={t("mood." + m.key)}
         >
           {m.emoji}
         </button>

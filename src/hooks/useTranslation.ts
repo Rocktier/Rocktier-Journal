@@ -1,27 +1,41 @@
-import { useState, useCallback } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getLocale, setLocale, t, Locale } from "../i18n";
 
-// 语言切换时同步重建系统菜单（Rust 侧 build_menu，Rocktier MD 同款模式）
+// Locale is a MODULE-LEVEL store shared by every useTranslation() consumer.
+// The previous implementation kept locale in per-hook useState: only the
+// component that clicked the switcher re-rendered, every other screen stayed
+// in its mount-time language — the "switch doesn't apply app-wide" bug.
+let listeners: Array<() => void> = [];
+
+function subscribe(cb: () => void): () => void {
+  listeners.push(cb);
+  return () => {
+    listeners = listeners.filter((l) => l !== cb);
+  };
+}
+
+function emit(): void {
+  for (const l of listeners) l();
+}
+
+// 语言切换时同步重建系统菜单（Rust 侧 build_menu，家族同款模式）
 function syncMenuLang(loc: Locale) {
   invoke("build_menu", { lang: loc }).catch(() => {});
 }
 
 export function useTranslation() {
-  const [locale, setLocaleState] = useState<Locale>(getLocale);
+  const locale = useSyncExternalStore(subscribe, getLocale);
 
   const changeLocale = useCallback((next: Locale) => {
     setLocale(next);
-    setLocaleState(next);
+    emit();
     syncMenuLang(next);
   }, []);
 
   const toggleLocale = useCallback(() => {
-    const next: Locale = locale === "en-US" ? "zh-CN" : "en-US";
-    setLocale(next);
-    setLocaleState(next);
-    syncMenuLang(next);
-  }, [locale]);
+    changeLocale(getLocale() === "en-US" ? "zh-CN" : "en-US");
+  }, []);
 
   return { locale, t, changeLocale, toggleLocale };
 }

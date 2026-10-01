@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { t } from "../i18n";
+import { useTranslation } from "../hooks/useTranslation";
 
 interface DiaryEntry {
   date: string;
@@ -27,6 +29,7 @@ interface GroupedEntry {
 }
 
 export default function Timeline() {
+  const { locale } = useTranslation();
   const [summaries, setSummaries] = useState<DiarySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewDate, setPreviewDate] = useState<string | null>(null);
@@ -85,10 +88,10 @@ export default function Timeline() {
   if (loading) {
     return (
       <div className="timeline-view">
-        <h2>Timeline</h2>
+        <h2>{t("sidebar.timeline")}</h2>
         <div className="timeline-loading">
           <span className="brand-dot small" />
-          <span>Loading timeline…</span>
+          <span>{t("timeline.loading")}</span>
         </div>
       </div>
     );
@@ -96,13 +99,13 @@ export default function Timeline() {
 
   return (
     <div className="timeline-view">
-      <h2>Timeline</h2>
-      <p className="timeline-subtitle">{summaries.length} entries · Scroll through your past</p>
+      <h2>{t("sidebar.timeline")}</h2>
+      <p className="timeline-subtitle">{t("timeline.subtitle", { n: summaries.length })}</p>
 
       {grouped.length === 0 && (
         <div className="timeline-empty">
-          <p>No entries to show.</p>
-          <p className="placeholder">Write your first diary entry to see it here.</p>
+          <p>{t("timeline.empty")}</p>
+          <p className="placeholder">{t("timeline.emptyHint")}</p>
         </div>
       )}
 
@@ -110,7 +113,7 @@ export default function Timeline() {
         {grouped.map((group) => (
           <section key={`${group.year}-${group.month}`} className="timeline-section">
             <h3 className="timeline-month-label">
-              {new Date(group.year, group.month, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+              {new Date(group.year, group.month, 1).toLocaleDateString(locale, { month: "long", year: "numeric" })}
             </h3>
             <div className="timeline-entries">
               {group.entries.map((entry) => (
@@ -124,9 +127,9 @@ export default function Timeline() {
                   </span>
                   <div className="timeline-entry-content">
                     <p className="timeline-entry-title">
-                      {entry.title || "Untitled"}
+                      {entry.title || t("editor.untitled")}
                     </p>
-                    <span className="timeline-entry-words">{entry.word_count} words</span>
+                    <span className="timeline-entry-words">{t("calendar.words", { n: entry.word_count })}</span>
                   </div>
                   {entry.mood && (
                     <span className="timeline-entry-mood">{moodMap[entry.mood] || "❓"}</span>
@@ -141,7 +144,7 @@ export default function Timeline() {
       {previewEntry && previewDate && (
         <div className="timeline-preview" onClick={() => setPreviewDate(null)}>
           <div className="timeline-preview-card" onClick={(e) => e.stopPropagation()}>
-            <h4>{formatDate(previewDate)}</h4>
+            <h4>{formatDate(previewDate, locale)}</h4>
             {previewEntry.title && <p className="timeline-preview-title">{previewEntry.title}</p>}
             <div className="timeline-preview-content">
               {stripMarkdown(previewEntry.content).slice(0, 300)}
@@ -150,7 +153,7 @@ export default function Timeline() {
             {previewEntry.mood && (
               <span className="timeline-preview-mood">{moodMap[previewEntry.mood] || "❓"}</span>
             )}
-            <button className="timeline-preview-close" onClick={() => setPreviewDate(null)}>Close</button>
+            <button className="timeline-preview-close" onClick={() => setPreviewDate(null)}>{t("common.close")}</button>
           </div>
         </div>
       )}
@@ -167,7 +170,7 @@ function stripMarkdown(md: string): string {
     .trim();
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, locale: string): string {
   const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  return d.toLocaleDateString(locale, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 }

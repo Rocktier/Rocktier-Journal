@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { useAuth } from "../hooks/AuthContext";
+import { useTranslation } from "../hooks/useTranslation";
 import JnLogo from "./JnLogo";
 
 type Mode = "unlock" | "reset" | "forceCreate";
@@ -22,6 +23,7 @@ async function confirmDestructive(message: string): Promise<boolean> {
  * Offers: unlock | forgot (hint answer → reset) | force-create (overwrite).
  */
 export default function LockScreen() {
+  const { t } = useTranslation();
   const {
     unlock,
     isUnlocking,
@@ -67,7 +69,7 @@ export default function LockScreen() {
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
-    if (!password) return setLocalError("Please enter your password.");
+    if (!password) return setLocalError(t("lock.enterPassword"));
     await unlock(password);
   };
 
@@ -78,10 +80,7 @@ export default function LockScreen() {
     if (h && h.trim().length > 0) {
       setMode("reset");
     } else {
-      setLocalError(
-        "No hint was set on this vault. It cannot be recovered. " +
-        "Use 'Create new vault' below to start fresh (old data is erased)."
-      );
+      setLocalError(t("lock.noHint"));
       setMode("forceCreate");
       consumeHint();
     }
@@ -91,11 +90,9 @@ export default function LockScreen() {
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
-    if (!hintAnswer.trim()) return setLocalError("Please enter your hint answer.");
+    if (!hintAnswer.trim()) return setLocalError(t("lock.enterHintAnswer"));
     // 不可逆销毁：先确认（此前点一下就没了）
-    const ok = await confirmDestructive(
-      "This erases the entire vault — every entry, image and the password. This cannot be undone. Continue?"
-    );
+    const ok = await confirmDestructive(t("lock.eraseWarn"));
     if (!ok) return;
     try {
       await resetVault(hintAnswer.trim());
@@ -103,7 +100,7 @@ export default function LockScreen() {
       clearAll();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      setLocalError(msg || "Incorrect hint answer.");
+      setLocalError(msg || t("lock.incorrectHint"));
     }
   };
 
@@ -111,15 +108,13 @@ export default function LockScreen() {
   const handleForceCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
-    if (!password) return setLocalError("Please enter a password.");
-    if (password.length < 8) return setLocalError("Password must be at least 8 characters.");
-    if (password !== confirmPassword) return setLocalError("Passwords do not match.");
-    if (!hintQuestion.trim()) return setLocalError("Please set a hint question.");
-    if (!hintAnswer.trim()) return setLocalError("Please set a hint answer.");
+    if (!password) return setLocalError(t("lock.enterNewPassword"));
+    if (password.length < 8) return setLocalError(t("lock.minChars"));
+    if (password !== confirmPassword) return setLocalError(t("lock.mismatch"));
+    if (!hintQuestion.trim()) return setLocalError(t("lock.setQuestion"));
+    if (!hintAnswer.trim()) return setLocalError(t("lock.setAnswer"));
     // 不可逆销毁：先确认（与 reset 同一条守卫）
-    const ok = await confirmDestructive(
-      "This erases the entire vault — every entry, image and the password. This cannot be undone. Continue?"
-    );
+    const ok = await confirmDestructive(t("lock.eraseWarn"));
     if (!ok) return;
     await forceCreateVault(password, hintQuestion.trim(), hintAnswer.trim());
   };
@@ -134,19 +129,19 @@ export default function LockScreen() {
     <div className="lock-screen">
       <div className="lock-card">
         <JnLogo size={48} />
-        <h1 className="lock-title">Rocktier Journal</h1>
-        <p className="lock-tagline">Offline is the best safety</p>
+        <h1 className="lock-title">{t("app.name")}</h1>
+        <p className="lock-tagline">{t("common.tagline")}</p>
 
         {/* UNLOCK */}
         {mode === "unlock" && (
           <>
-            <p className="lock-subtitle">Enter password to unlock</p>
+            <p className="lock-subtitle">{t("lock.unlock")}</p>
             <form onSubmit={handleUnlock} className="lock-form">
               <div className="lock-input-wrap">
                 <input
                   ref={passwordRef}
                   type={showPassword ? "text" : "password"}
-                  placeholder="Password"
+                  placeholder={t("lock.password")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="lock-input"
@@ -157,15 +152,15 @@ export default function LockScreen() {
                 </button>
               </div>
               <button type="submit" disabled={isUnlocking} className="lock-btn">
-                {isUnlocking ? "Please wait…" : "Unlock"}
+                {isUnlocking ? t("lock.pleaseWait") : t("lock.unlockBtn")}
               </button>
             </form>
             <div className="lock-secondary-actions">
               <button type="button" className="lock-forgot" onClick={handleForgot}>
-                Forgot password?
+                {t("lock.forgot")}
               </button>
               <button type="button" className="lock-forgot danger" onClick={() => { setMode("forceCreate"); clearAll(); }}>
-                Create new vault (erases old)
+                {t("lock.createErase")}
               </button>
             </div>
           </>
@@ -174,7 +169,7 @@ export default function LockScreen() {
         {/* RESET via hint */}
         {mode === "reset" && (
           <>
-            <p className="lock-subtitle">Answer your hint question</p>
+            <p className="lock-subtitle">{t("lock.hint")}</p>
             <form onSubmit={handleReset} className="lock-form">
               <div className="lock-hint-display">
                 <span className="lock-hint-q">Q:</span>
@@ -184,7 +179,7 @@ export default function LockScreen() {
                 <input
                   ref={answerRef}
                   type={showHintAnswer ? "text" : "password"}
-                  placeholder="Your answer"
+                  placeholder={t("lock.hintAnswer")}
                   value={hintAnswer}
                   onChange={(e) => setHintAnswer(e.target.value)}
                   className="lock-input"
@@ -195,9 +190,9 @@ export default function LockScreen() {
                 </button>
               </div>
               <button type="submit" disabled={isUnlocking} className="lock-btn danger">
-                {isUnlocking ? "Please wait…" : "Erase & Reset Vault"}
+                {isUnlocking ? t("lock.pleaseWait") : t("lock.eraseReset")}
               </button>
-              <button type="button" className="lock-cancel" onClick={backToUnlock}>← Back to unlock</button>
+              <button type="button" className="lock-cancel" onClick={backToUnlock}>{t("lock.backToUnlock")}</button>
             </form>
           </>
         )}
@@ -205,13 +200,13 @@ export default function LockScreen() {
         {/* FORCE CREATE */}
         {mode === "forceCreate" && (
           <>
-            <p className="lock-subtitle">Create new vault (overwrites old data)</p>
+            <p className="lock-subtitle">{t("lock.createOverwrite")}</p>
             <form onSubmit={handleForceCreate} className="lock-form">
               <div className="lock-input-wrap">
                 <input
                   ref={passwordRef}
                   type={showPassword ? "text" : "password"}
-                  placeholder="New password"
+                  placeholder={t("lock.newPassword")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="lock-input"
@@ -223,7 +218,7 @@ export default function LockScreen() {
               </div>
               <input
                 type={showPassword ? "text" : "password"}
-                placeholder="Confirm new password"
+                placeholder={t("lock.confirmNew")}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="lock-input"
@@ -231,23 +226,23 @@ export default function LockScreen() {
               <div className="lock-hint-section">
                 <input
                   type="text"
-                  placeholder="Hint question (e.g. First pet's name?)"
+                  placeholder={t("lock.hintQuestion")}
                   value={hintQuestion}
                   onChange={(e) => setHintQuestion(e.target.value)}
                   className="lock-input"
                 />
                 <input
                   type="text"
-                  placeholder="Hint answer"
+                  placeholder={t("lock.hintAnswer")}
                   value={hintAnswer}
                   onChange={(e) => setHintAnswer(e.target.value)}
                   className="lock-input"
                 />
               </div>
               <button type="submit" disabled={isUnlocking} className="lock-btn danger">
-                {isUnlocking ? "Please wait…" : "Overwrite & Create"}
+                {isUnlocking ? t("lock.pleaseWait") : t("lock.overwriteCreate")}
               </button>
-              <button type="button" className="lock-cancel" onClick={backToUnlock}>← Back to unlock</button>
+              <button type="button" className="lock-cancel" onClick={backToUnlock}>{t("lock.backToUnlock")}</button>
             </form>
           </>
         )}

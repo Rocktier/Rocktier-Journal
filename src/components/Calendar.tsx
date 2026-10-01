@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { t } from "../i18n";
+import { useTranslation } from "../hooks/useTranslation";
 
 interface DiarySummary {
   date: string;
@@ -14,6 +16,7 @@ interface Props {
 }
 
 export default function Calendar({ onDateSelect }: Props) {
+  const { t, locale } = useTranslation();
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
@@ -65,7 +68,7 @@ export default function Calendar({ onDateSelect }: Props) {
   const startWeekday = firstDay.getDay();
   const daysInMonth = lastDay.getDate();
 
-  const monthName = firstDay.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const monthName = firstDay.toLocaleDateString(locale, { month: "long", year: "numeric" });
 
   const dayNames = ["S", "M", "T", "W", "T", "F", "S"];
 
@@ -85,14 +88,14 @@ export default function Calendar({ onDateSelect }: Props) {
       <div className="calendar-header">
         <h2>{monthName}</h2>
         <div className="calendar-nav">
-          <button onClick={handlePrev} className="calendar-nav-btn" aria-label="Previous month">‹</button>
+          <button onClick={handlePrev} className="calendar-nav-btn" aria-label={t("calendar.prevMonth")}>‹</button>
           <button onClick={() => {
             const now = new Date();
             setCurrentMonth({ year: now.getFullYear(), month: now.getMonth() });
             setSelectedDate(todayStr);
             onDateSelect(todayStr);
-          }} className="calendar-today-btn">Today</button>
-          <button onClick={handleNext} className="calendar-nav-btn" aria-label="Next month">›</button>
+          }} className="calendar-today-btn">{t("calendar.today")}</button>
+          <button onClick={handleNext} className="calendar-nav-btn" aria-label={t("calendar.nextMonth")}>›</button>
         </div>
       </div>
 
@@ -129,23 +132,23 @@ export default function Calendar({ onDateSelect }: Props) {
 
       {selectedDate && (
         <div className="calendar-detail">
-          <h3>{formatDate(selectedDate)}</h3>
+          <h3>{formatDate(selectedDate, locale)}</h3>
           {selectedEntry ? (
             <div className="calendar-entry-summary">
               {selectedEntry.title && <p className="calendar-entry-title">{selectedEntry.title}</p>}
-              <p className="calendar-entry-words">{selectedEntry.word_count} words</p>
-              {selectedEntry.mood && <p className="calendar-entry-mood">Mood: {moodLabel(selectedEntry.mood)}</p>}
+              <p className="calendar-entry-words">{t("calendar.words", { n: selectedEntry.word_count })}</p>
+              {selectedEntry.mood && <p className="calendar-entry-mood">{t("calendar.mood", { m: moodLabel(selectedEntry.mood) })}</p>}
             </div>
           ) : (
-            <p className="calendar-no-entry">No entry for this date.</p>
+            <p className="calendar-no-entry">{t("calendar.noEntry")}</p>
           )}
           <button className="calendar-open-btn" onClick={() => onDateSelect(selectedDate)}>
-            Open in Editor
+            {t("calendar.openEditor")}
           </button>
         </div>
       )}
 
-      {loading && <div className="calendar-loading">Loading…</div>}
+      {loading && <div className="calendar-loading">{t("common.loading")}</div>}
     </div>
   );
 }
@@ -171,18 +174,10 @@ function moodEmoji(mood: string): string {
 }
 
 function moodLabel(mood: string): string {
-  const map: Record<string, string> = {
-    happy: "Happy",
-    neutral: "Neutral",
-    sad: "Sad",
-    angry: "Angry",
-    tired: "Tired",
-    custom: "Custom",
-  };
-  return map[mood] || mood;
+  return t("mood." + mood);
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, locale: string): string {
   const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  return d.toLocaleDateString(locale, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 }

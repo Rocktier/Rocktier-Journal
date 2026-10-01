@@ -1,4 +1,5 @@
 import { useTheme } from "../hooks/useTheme";
+import { useTranslation } from "../hooks/useTranslation";
 import JnLogo from "./JnLogo";
 
 interface Props {
@@ -8,14 +9,15 @@ interface Props {
 }
 
 export default function Sidebar({ currentView, onViewChange, onLock }: Props) {
+  const { t } = useTranslation();
   const { theme, toggleTheme } = useTheme();
 
   const navItems = [
-    { id: "today", label: "Today", icon: "✏" },
-    { id: "calendar", label: "Calendar", icon: "▦" },
-    { id: "timeline", label: "Timeline", icon: "≣" },
-    { id: "search", label: "Search", icon: "⌕" },
-    { id: "settings", label: "Settings", icon: "⚙" },
+    { id: "today", label: t("sidebar.today"), icon: "✏" },
+    { id: "calendar", label: t("sidebar.calendar"), icon: "▦" },
+    { id: "timeline", label: t("sidebar.timeline"), icon: "≣" },
+    { id: "search", label: t("sidebar.search"), icon: "⌕" },
+    { id: "settings", label: t("sidebar.settings"), icon: "⚙" },
   ];
 
   return (
@@ -24,7 +26,7 @@ export default function Sidebar({ currentView, onViewChange, onLock }: Props) {
         <JnLogo size={28} />
         <span className="sidebar-brand">Journal</span>
       </div>
-      <div className="sidebar-tagline">Offline is the best safety</div>
+      <div className="sidebar-tagline">{t("common.tagline")}</div>
 
       <ul className="sidebar-nav">
         {navItems.map((item) => (
@@ -41,12 +43,12 @@ export default function Sidebar({ currentView, onViewChange, onLock }: Props) {
       </ul>
 
       <div className="sidebar-bottom">
-        <button className="sidebar-theme-toggle" onClick={toggleTheme} title={theme === "dark" ? "Switch to light" : "Switch to dark"}>
+        <button className="sidebar-theme-toggle" onClick={toggleTheme} title={theme === "dark" ? t("settings.theme.light") : t("settings.theme.dark")}>
           <span className="sidebar-icon">{theme === "dark" ? "☀" : "☾"}</span>
-          <span>{theme === "dark" ? "Light" : "Dark"}</span>
+          <span>{theme === "dark" ? t("sidebar.theme.light") : t("sidebar.theme.dark")}</span>
         </button>
         <button className="sidebar-lock" onClick={onLock}>
-          Lock
+          {t("sidebar.lock")}
         </button>
       </div>
     </nav>

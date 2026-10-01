@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { save } from "@tauri-apps/plugin-dialog";
 import { useTheme } from "../hooks/useTheme";
 import { useTranslation } from "../hooks/useTranslation";
@@ -9,6 +10,11 @@ export default function Settings() {
   const { t, toggleLocale, locale } = useTranslation();
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
+  const [version, setVersion] = useState<string>("");
+
+  useEffect(() => {
+    getVersion().then(setVersion).catch(() => {});
+  }, []);
 
   const handleExport = async () => {
     setExporting(true);
@@ -17,7 +23,7 @@ export default function Settings() {
     try {
       const defaultName = `rocktier-journal-backup-${new Date().toISOString().slice(0, 10)}.zip`;
       const outputPath = await save({
-        title: "Export Vault",
+        title: t("settings.export.title"),
         defaultPath: defaultName,
         filters: [{ name: "ZIP Archive", extensions: ["zip"] }],
       });
@@ -31,7 +37,7 @@ export default function Settings() {
       setExportMsg(t("settings.export.done", { n: count }));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      setExportMsg(`Export failed: ${msg}`);
+      setExportMsg(t("settings.export.failed", { e: msg }));
     } finally {
       setExporting(false);
       setTimeout(() => setExportMsg(null), 5000);
@@ -50,7 +56,7 @@ export default function Settings() {
       </div>
 
       <div className="settings-item">
-        <label>Language</label>
+        <label>{t("settings.language")}</label>
         <button onClick={toggleLocale} className="theme-toggle">
           {t("i18n.switch")}
         </button>
@@ -68,7 +74,7 @@ export default function Settings() {
 
       <div className="settings-item">
         <label>{t("settings.version")}</label>
-        <span className="settings-version">0.1.0 ({locale})</span>
+        <span className="settings-version">{version || "—"} ({locale})</span>
       </div>
     </div>
   );

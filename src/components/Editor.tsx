@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { t } from "../i18n";
+import { useTranslation } from "../hooks/useTranslation";
 import JournalEditor from "./JournalEditor";
 import MoodPicker from "./MoodPicker";
 
@@ -21,6 +23,7 @@ interface Props {
 type SaveStatus = "idle" | "saving" | "saved" | "unsaved";
 
 export default function Editor({ date }: Props) {
+  const { locale } = useTranslation();
   const [content, setContent] = useState("");
   const [title, setTitle] = useState<string | undefined>(undefined);
   const [mood, setMood] = useState<string | null>(null);
@@ -149,15 +152,15 @@ export default function Editor({ date }: Props) {
   return (
     <div className="editor">
       <div className="editor-header">
-        <h2 className="editor-date">{formatDate(date)}</h2>
+        <h2 className="editor-date">{formatDate(date, locale)}</h2>
         <MoodPicker selected={mood} onSelect={setMood} />
         <button
           onClick={handleSave}
           disabled={!dirty && saveStatus === "idle"}
           className={`editor-save ${saveStatus === "saved" ? "saved" : ""} ${dirty && saveStatus !== "saving" ? "dirty" : ""}`}
-          title="Save (Ctrl/Cmd+S)"
+          title={t("editor.saveShortcut")}
         >
-          {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved ✓" : dirty ? "Save •" : "Save"}
+          {saveStatus === "saving" ? t("editor.saving") : saveStatus === "saved" ? t("editor.saved") : dirty ? t("editor.saveDirty") : t("editor.save")}
         </button>
       </div>
 
@@ -165,7 +168,7 @@ export default function Editor({ date }: Props) {
         <input
           type="text"
           className="editor-title-input"
-          placeholder="Optional title…"
+          placeholder={t("editor.titlePlaceholder")}
           value={title || ""}
           onChange={(e) => {
             setTitle(e.target.value || undefined);
@@ -184,11 +187,11 @@ export default function Editor({ date }: Props) {
 
       <div className="editor-footer">
         <span className="editor-wordcount">
-          {wordCount} words · {charCount} chars
+          {t("editor.wordsChars", { w: wordCount, c: charCount })}
         </span>
         <span className="editor-save-status">
-          {saveStatus === "saving" && <span className="sv-saving">Saving…</span>}
-          {saveStatus === "saved" && <span className="sv-saved">Saved ✓</span>}
+          {saveStatus === "saving" && <span className="sv-saving">{t("editor.saving")}</span>}
+          {saveStatus === "saved" && <span className="sv-saved">{t("editor.saved")}</span>}
         </span>
         {error && <span className="editor-error">{error}</span>}
       </div>
@@ -196,9 +199,9 @@ export default function Editor({ date }: Props) {
   );
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, locale: string): string {
   const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("en-US", {
+  return d.toLocaleDateString(locale, {
     weekday: "long",
     year: "numeric",
     month: "long",

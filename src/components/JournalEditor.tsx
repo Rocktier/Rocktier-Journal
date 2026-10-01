@@ -3,6 +3,8 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import type { Editor } from "@tiptap/core";
+import { t } from "../i18n";
+import { useTranslation } from "../hooks/useTranslation";
 
 // CommandButton — one toolbar action
 function CommandButton({
@@ -34,6 +36,7 @@ function CommandButton({
 }
 
 function Toolbar({ editor }: { editor: Editor | null }) {
+  const { t } = useTranslation();
   if (!editor) return null;
 
   const setLink = useCallback(() => {
@@ -47,24 +50,24 @@ function Toolbar({ editor }: { editor: Editor | null }) {
   }, [editor]);
 
   return (
-    <div className="jeditor-toolbar" role="toolbar" aria-label="Formatting">
+    <div className="jeditor-toolbar" role="toolbar" aria-label={t("format.toolbar")}>
       {/* Inline marks */}
       <CommandButton
-        title="Bold (⌘B)"
+        title={t("format.bold") + " (⌘B)"}
         active={editor.isActive("bold")}
         onClick={() => editor.chain().focus().toggleBold().run()}
       >
         <span className="tb-icon strong">B</span>
       </CommandButton>
       <CommandButton
-        title="Italic (⌘I)"
+        title={t("format.italic") + " (⌘I)"}
         active={editor.isActive("italic")}
         onClick={() => editor.chain().focus().toggleItalic().run()}
       >
         <span className="tb-icon italic">I</span>
       </CommandButton>
       <CommandButton
-        title="Strikethrough"
+        title={t("format.strike")}
         active={editor.isActive("strike")}
         onClick={() => editor.chain().focus().toggleStrike().run()}
       >
@@ -73,9 +76,9 @@ function Toolbar({ editor }: { editor: Editor | null }) {
       <button
         type="button"
         className={`tbar-btn ${editor.isActive("code") ? "is-active" : ""}`}
-        title="Inline code"
+        title={t("format.code")}
         onClick={() => editor.chain().focus().toggleCode().run()}
-        aria-label="Inline code"
+        aria-label={t("format.code")}
         aria-pressed={editor.isActive("code")}
       >
         <span className="tb-icon mono">{"</>"}</span>
@@ -85,21 +88,21 @@ function Toolbar({ editor }: { editor: Editor | null }) {
 
       {/* Block: headings */}
       <CommandButton
-        title="Heading 1"
+        title={t("format.h1")}
         active={editor.isActive("heading", { level: 1 })}
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
       >
         <span className="tb-icon">H1</span>
       </CommandButton>
       <CommandButton
-        title="Heading 2"
+        title={t("format.h2")}
         active={editor.isActive("heading", { level: 2 })}
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
       >
         <span className="tb-icon">H2</span>
       </CommandButton>
       <CommandButton
-        title="Heading 3"
+        title={t("format.h3")}
         active={editor.isActive("heading", { level: 3 })}
         onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
       >
@@ -108,9 +111,9 @@ function Toolbar({ editor }: { editor: Editor | null }) {
       <button
         type="button"
         className={`tbar-btn ${editor.isActive("paragraph") ? "is-active" : ""}`}
-        title="Body text"
+        title={t("format.body")}
         onClick={() => editor.chain().focus().setParagraph().run()}
-        aria-label="Body text"
+        aria-label={t("format.body")}
         aria-pressed={editor.isActive("paragraph")}
       >
         <span className="tb-icon">P</span>
@@ -120,14 +123,14 @@ function Toolbar({ editor }: { editor: Editor | null }) {
 
       {/* Lists + quote + code block */}
       <CommandButton
-        title="Bullet list"
+        title={t("format.bulletList")}
         active={editor.isActive("bulletList")}
         onClick={() => editor.chain().focus().toggleBulletList().run()}
       >
         <span className="tb-icon">•≡</span>
       </CommandButton>
       <CommandButton
-        title="Ordered list"
+        title={t("format.orderedList")}
         active={editor.isActive("orderedList")}
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
       >
@@ -136,9 +139,9 @@ function Toolbar({ editor }: { editor: Editor | null }) {
       <button
         type="button"
         className={`tbar-btn ${editor.isActive("blockquote") ? "is-active" : ""}`}
-        title="Quote"
+        title={t("format.quote")}
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
-        aria-label="Quote"
+        aria-label={t("format.quote")}
         aria-pressed={editor.isActive("blockquote")}
       >
         <span className="tb-icon">❝</span>
@@ -146,9 +149,9 @@ function Toolbar({ editor }: { editor: Editor | null }) {
       <button
         type="button"
         className={`tbar-btn ${editor.isActive("codeBlock") ? "is-active" : ""}`}
-        title="Code block"
+        title={t("format.codeBlock")}
         onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-        aria-label="Code block"
+        aria-label={t("format.codeBlock")}
         aria-pressed={editor.isActive("codeBlock")}
       >
         <span className="tb-icon mono">{"</>"}</span>
@@ -160,22 +163,22 @@ function Toolbar({ editor }: { editor: Editor | null }) {
       <button
         type="button"
         className={`tbar-btn ${editor.isActive("link") ? "is-active" : ""}`}
-        title="Link"
+        title={t("format.link")}
         onClick={setLink}
-        aria-label="Link"
+        aria-label={t("format.link")}
         aria-pressed={editor.isActive("link")}
       >
         <span className="tb-icon link">⌬</span>
       </button>
       <CommandButton
-        title="Undo (⌘Z)"
+        title={t("format.undo") + " (⌘Z)"}
         disabled={!editor.can().undo()}
         onClick={() => editor.chain().focus().undo().run()}
       >
         <span className="tb-icon">↶</span>
       </CommandButton>
       <CommandButton
-        title="Redo (⌘⇧Z)"
+        title={t("format.redo") + " (⌘⇧Z)"}
         disabled={!editor.can().redo()}
         onClick={() => editor.chain().focus().redo().run()}
       >

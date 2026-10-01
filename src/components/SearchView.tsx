@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { t } from "../i18n";
+import { useTranslation } from "../hooks/useTranslation";
 
 interface DiarySummary {
   date: string;
@@ -15,6 +17,7 @@ interface Props {
 }
 
 export default function SearchView({ onSelect }: Props) {
+  const { locale } = useTranslation();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<DiarySummary[]>([]);
   const [searched, setSearched] = useState(false);
@@ -61,7 +64,7 @@ export default function SearchView({ onSelect }: Props) {
 
   return (
     <div className="search-view">
-      <h2>Search</h2>
+      <h2>{t("sidebar.search")}</h2>
 
       <div className="search-controls">
         <input
@@ -69,15 +72,16 @@ export default function SearchView({ onSelect }: Props) {
           className="search-input"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search title and content…"
+          placeholder={t("search.titlePh")}
         />
         {loading && <span className="search-spinner" aria-hidden="true">⌛</span>}
       </div>
 
       {searched && (
         <p className="search-summary">
-          {results.length} result{results.length !== 1 ? "s" : ""}
-          {query.trim() && ` for “${query.trim()}”`}
+          {query.trim()
+            ? t("search.resultsFor", { n: results.length, q: query.trim() })
+            : t("search.results", { n: results.length })}
         </p>
       )}
 
@@ -98,9 +102,9 @@ export default function SearchView({ onSelect }: Props) {
                 }
               }}
             >
-              <span className="search-result-date">{formatDate(r.date)}</span>
+              <span className="search-result-date">{formatDate(r.date, locale)}</span>
               {r.title && <span className="search-result-title">{r.title}</span>}
-              <span className="search-result-words">{r.word_count} words</span>
+              <span className="search-result-words">{t("calendar.words", { n: r.word_count })}</span>
               {r.mood && <span className="search-result-mood">{moodMap[r.mood] || "❓"}</span>}
             </li>
           ))}
@@ -108,17 +112,15 @@ export default function SearchView({ onSelect }: Props) {
       )}
 
       {searched && results.length === 0 && !loading && (
-        <p className="search-empty">No entries found.</p>
+        <p className="search-empty">{t("search.noResults")}</p>
       )}
 
-      <p className="search-note">
-        Title and content search is local-only. Small libraries are near-instant; hundreds of entries may take a moment as each entry is decrypted in memory.
-      </p>
+      <p className="search-note">{t("search.note")}</p>
     </div>
   );
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, locale: string): string {
   const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  return d.toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" });
 }
