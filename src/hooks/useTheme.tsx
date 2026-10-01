@@ -11,7 +11,7 @@ interface ThemeCtx {
 
 const ThemeContext = createContext<ThemeCtx | null>(null);
 
-const STORAGE_KEY = "rj-theme";
+const STORAGE_KEY = "rocktier.journal.theme";
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {

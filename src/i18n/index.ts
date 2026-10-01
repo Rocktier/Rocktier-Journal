@@ -221,7 +221,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
   },
 };
 
-const STORAGE_KEY = "rj-locale";
+const STORAGE_KEY = "rocktier.journal.lang";
 
 export function getLocale(): Locale {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -232,6 +232,13 @@ export function getLocale(): Locale {
 
 export function setLocale(loc: Locale): void {
   localStorage.setItem(STORAGE_KEY, loc);
+  // 无障碍底线：屏幕阅读器要用对应语言的语音引擎
+  if (typeof document !== "undefined") document.documentElement.lang = loc;
+}
+
+/** 启动时同步一次 lang 属性（切换时由 setLocale 负责） */
+export function syncHtmlLang(): void {
+  if (typeof document !== "undefined") document.documentElement.lang = getLocale();
 }
 
 export function t(key: string, vars?: Record<string, string | number>): string {
