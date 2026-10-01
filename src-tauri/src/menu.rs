@@ -5,10 +5,27 @@ use tauri_plugin_opener::OpenerExt;
 /// Open a URL or mailto link — whitelist only (family rule). Previously this
 /// hand-rolled `open`/`cmd /C start`/`xdg-open` via std::process: no whitelist
 /// at all, and the Windows branch launched without quoting the argument.
+/// Exact-host whitelist check. The previous prefix list
+/// `["https://rocktier.com/", …]` silently rejected "https://rocktier.com"
+/// (no trailing slash — the help-menu caller), leaving the Help → Website
+/// item dead. Parse the host instead of comparing prefixes, so the check is
+/// neither too strict nor bypassable via "https://rocktier.com.evil.tld/".
+fn is_allowed_url(url: &str) -> bool {
+    if url.starts_with("mailto:") {
+        return true;
+    }
+    let Some(rest) = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+    else {
+        return false;
+    };
+    let host = rest.split(['/', '?', '#']).next().unwrap_or("");
+    host == "rocktier.com" || host == "www.rocktier.com"
+}
+
 fn open_extern(app: &AppHandle, url: &str) {
-    const ALLOWED: [&str; 3] =
-        ["https://rocktier.com/", "https://www.rocktier.com/", "mailto:"];
-    if !ALLOWED.iter().any(|p| url.starts_with(p)) {
+    if !is_allowed_url(url) {
         return;
     }
     let _ = app.opener().open_url(url, None::<&str>);

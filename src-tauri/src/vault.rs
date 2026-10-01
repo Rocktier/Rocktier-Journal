@@ -16,6 +16,67 @@ const RKD_MAGIC: &[u8] = b"RKDJ";
 const RKD_VERSION: u32 = 1;
 const VERIFIER_PLAINTEXT: &[u8] = b"ROCKTIER_VAULT_OK";
 
+/// Legacy identifier (pre-0.2.x) whose app-data dir may hold an existing vault.
+const LEGACY_IDENTIFIER_DIR: &str = "com.rocktier.journal";
+
+/// Resolve the vault directory, migrating a pre-0.2.x vault if needed.
+///
+/// The bundle identifier changed from `com.rocktier.journal` to
+/// `Rocktier.RocktierJournal` for the Microsoft Store, and macOS derives
+/// `app_local_data_dir()` from that identifier — so an identifier-only change
+/// would silently orphan every vault created under the old one. One-time
+/// migration: **copy** (never move, never delete) legacy vault contents into
+/// the new location; the old copy stays untouched as a lifeline. Only fills
+/// in what is missing, so an interrupted migration simply runs again.
+fn resolve_vault_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let app_dir = app_handle
+        .path()
+        .app_local_data_dir()
+        .map_err(|e| format!("Cannot resolve app data dir: {}", e))?;
+    let vault_dir = app_dir.join(VAULT_DIRNAME);
+    if vault_dir.exists() {
+        return Ok(vault_dir);
+    }
+    let legacy_dir = app_dir
+        .parent()
+        .map(|p| p.join(LEGACY_IDENTIFIER_DIR).join(VAULT_DIRNAME));
+    if let Some(legacy) = legacy_dir {
+        if legacy.exists() {
+            fs::create_dir_all(&vault_dir)
+                .map_err(|e| format!("Cannot create vault dir: {}", e))?;
+            for entry in fs::read_dir(&legacy)
+                .map_err(|e| format!("Cannot read legacy vault: {}", e))?
+                .flatten()
+            {
+                let dest = vault_dir.join(entry.file_name());
+                if dest.exists() {
+                    continue; // never overwrite anything already in the new vault
+                }
+                if entry.path().is_dir() {
+                    copy_dir_all(&entry.path(), &dest)?;
+                } else {
+                    fs::copy(entry.path(), &dest)
+                        .map_err(|e| format!("Cannot migrate {}: {}", entry.file_name().to_string_lossy(), e))?;
+                }
+            }
+        }
+    }
+    Ok(vault_dir)
+}
+
+fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), String> {
+    fs::create_dir_all(dst).map_err(|e| e.to_string())?;
+    for entry in fs::read_dir(src).map_err(|e| e.to_string())?.flatten() {
+        let dest = dst.join(entry.file_name());
+        if entry.path().is_dir() {
+            copy_dir_all(&entry.path(), &dest)?;
+        } else {
+            fs::copy(entry.path(), &dest).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
+}
+
 /// Per-process sequence for temp file names (same as MD's TMP_SEQ): the PID
 /// alone is constant for the life of the process, so two saves racing would
 /// share one temp name and truncate each other.
@@ -86,11 +147,7 @@ impl VaultState {
 pub fn get_hint(
     app_handle: tauri::AppHandle,
 ) -> Result<Option<String>, String> {
-    let app_dir = app_handle
-        .path()
-        .app_local_data_dir()
-        .map_err(|e| format!("Cannot resolve app data dir: {}", e))?;
-    let vault_dir = app_dir.join(VAULT_DIRNAME);
+    let vault_dir = resolve_vault_dir(&app_handle)?;
     let meta_path = vault_dir.join(META_FILENAME);
 
     if !meta_path.exists() {
@@ -112,11 +169,7 @@ pub fn delete_vault(
     app_handle: tauri::AppHandle,
     hint_answer: Option<String>,
 ) -> Result<(), String> {
-    let app_dir = app_handle
-        .path()
-        .app_local_data_dir()
-        .map_err(|e| format!("Cannot resolve app data dir: {}", e))?;
-    let vault_dir = app_dir.join(VAULT_DIRNAME);
+    let vault_dir = resolve_vault_dir(&app_handle)?;
     let meta_path = vault_dir.join(META_FILENAME);
 
     // If meta exists and has a hint, verify the answer before allowing delete
@@ -155,10 +208,8 @@ pub fn check_vault_exists(state: State<'_, VaultState>, app_handle: tauri::AppHa
     if state.path.lock().unwrap().is_some() {
         return true;
     }
-    app_handle
-        .path()
-        .app_local_data_dir()
-        .map(|d| d.join(VAULT_DIRNAME).exists())
+    resolve_vault_dir(&app_handle)
+        .map(|d| d.exists())
         .unwrap_or(false)
 }
 
@@ -172,11 +223,7 @@ pub fn force_create_vault(
     hint_answer: String,
 ) -> Result<(), String> {
     // Delete any existing vault first
-    let app_dir = app_handle
-        .path()
-        .app_local_data_dir()
-        .map_err(|e| format!("Cannot resolve app data dir: {}", e))?;
-    let vault_dir = app_dir.join(VAULT_DIRNAME);
+    let vault_dir = resolve_vault_dir(&app_handle)?;
     if vault_dir.exists() {
         fs::remove_dir_all(&vault_dir)
             .map_err(|e| format!("Failed to delete old vault: {}", e))?;
@@ -201,11 +248,7 @@ pub fn init_vault(
         return Err("Password must be at least 8 characters".to_string());
     }
 
-    let app_dir = app_handle
-        .path()
-        .app_local_data_dir()
-        .map_err(|e| format!("Cannot resolve app data dir: {}", e))?;
-    let vault_dir = app_dir.join(VAULT_DIRNAME);
+    let vault_dir = resolve_vault_dir(&app_handle)?;
 
     if vault_dir.exists() {
         return Err("Vault already exists".to_string());
@@ -231,11 +274,7 @@ fn init_vault_internal(
         return Err("Hint answer is required".to_string());
     }
 
-    let app_dir = app_handle
-        .path()
-        .app_local_data_dir()
-        .map_err(|e| format!("Cannot resolve app data dir: {}", e))?;
-    let vault_dir = app_dir.join(VAULT_DIRNAME);
+    let vault_dir = resolve_vault_dir(&app_handle)?;
 
     if vault_dir.exists() {
         return Err("Vault already exists".to_string());
@@ -296,11 +335,7 @@ pub fn unlock_vault(
     app_handle: tauri::AppHandle,
     password: String,
 ) -> Result<(), String> {
-    let app_dir = app_handle
-        .path()
-        .app_local_data_dir()
-        .map_err(|e| format!("Cannot resolve app data dir: {}", e))?;
-    let vault_dir = app_dir.join(VAULT_DIRNAME);
+    let vault_dir = resolve_vault_dir(&app_handle)?;
 
     if !vault_dir.exists() {
         return Err("Vault does not exist. Please create one first.".to_string());
@@ -319,15 +354,22 @@ pub fn unlock_vault(
     // Derive key
     let key = crypto::derive_key(&password, &salt);
 
-    // Verify password by decrypting verifier (AES-GCM tag check fails on wrong key)
+    // Verify password by decrypting verifier (AES-GCM tag check fails on wrong key).
+    // A vault WITHOUT a verifier is incomplete (partial restore, failed copy).
+    // Accepting any password here would decrypt to garbage and present an
+    // empty-looking vault — refuse loudly instead of faking a successful unlock.
     let verifier_path = vault_dir.join(VERIFIER_FILENAME);
-    if verifier_path.exists() {
-        let verifier_encrypted = fs::read(&verifier_path)
-            .map_err(|e| format!("Failed to read verifier: {}", e))?;
-        match crypto::decrypt(&key, &verifier_encrypted) {
-            Ok(plaintext) if plaintext == VERIFIER_PLAINTEXT => { /* ok */ }
-            _ => return Err("Incorrect password".to_string()),
-        }
+    if !verifier_path.exists() {
+        return Err(
+            "Vault file is incomplete (missing vault.verifier). Restore a full backup before unlocking."
+                .to_string(),
+        );
+    }
+    let verifier_encrypted = fs::read(&verifier_path)
+        .map_err(|e| format!("Failed to read verifier: {}", e))?;
+    match crypto::decrypt(&key, &verifier_encrypted) {
+        Ok(plaintext) if plaintext == VERIFIER_PLAINTEXT => { /* ok */ }
+        _ => return Err("Incorrect password".to_string()),
     }
 
     // Update state
