@@ -1,4 +1,4 @@
-// Minimal i18n: en-US default, zh-CN available. Locale persisted in localStorage under "rj-locale".
+// Minimal i18n: en-US default, zh-CN available. Locale persisted in localStorage under "rocktier.journal.lang".
 // 家族规范：默认英文、不跟随系统，仅在用户手动切换后记忆。
 export type Locale = "en-US" | "zh-CN";
 
@@ -26,7 +26,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     "lock.eraseReset": "Erase & Reset Vault",
     "lock.overwriteCreate": "Overwrite & Create",
     "lock.backToUnlock": "← Back to unlock",
-    "lock.noHint": "No hint was set on this vault. It cannot be recovered. Use \"Create new vault\" below to start fresh (old data is erased).",
+    "lock.noHint": "No hint was set on this vault. It cannot be recovered. If you really want to abandon this vault, you can create a new one (the old data will be permanently destroyed).",
+    "lock.oldHintAnswer": "Old vault's hint answer (required to erase it)",
     "lock.enterPassword": "Please enter your password.",
     "lock.enterNewPassword": "Please enter a password.",
     "lock.enterHintAnswer": "Please enter your hint answer.",
@@ -141,7 +142,8 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     "lock.eraseReset": "清除并重置保险箱",
     "lock.overwriteCreate": "覆盖并创建",
     "lock.backToUnlock": "← 返回解锁",
-    "lock.noHint": "此保险箱未设置提示问题，无法找回。请在下方使用\"创建新保险箱\"重新开始（旧数据将被清除）。",
+    "lock.noHint": "此保险箱未设置提示问题，无法找回密码。如确要放弃此保险箱，可创建新保险箱（旧数据将被永久销毁）。",
+    "lock.oldHintAnswer": "旧保险箱的提示答案（清除旧数据必填）",
     "lock.enterPassword": "请输入密码。",
     "lock.enterNewPassword": "请输入密码。",
     "lock.enterHintAnswer": "请输入提示问题答案。",

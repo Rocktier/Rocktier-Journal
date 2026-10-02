@@ -12,6 +12,8 @@ fn main() {
         .setup(|app| {
             // 初建用英文；前端挂载后会按持久化语言调 build_menu 重建（MD 同款模式）
             menu::build_app_menu(&app.handle().clone(), "en")?;
+            // 删除/覆盖保险箱采用 7 天墓碑制（vault::tombstone_vault_dir），启动时清扫过期墓碑
+            vault::cleanup_deleted_vaults(app.handle());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

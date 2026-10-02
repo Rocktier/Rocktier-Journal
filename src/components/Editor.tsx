@@ -261,10 +261,21 @@ function toStyledHtml(raw: string): string {
     .join("");
 }
 
-/** Strip HTML tags for word / char count. */
+/**
+ * Strip HTML markup for word / char count. Kept in step with the backend's
+ * strip_html (vault.rs): drop <script>/<style> blocks wholesale, replace every
+ * remaining tag with a space, decode the common entities (&amp; last).
+ */
 function stripHtml(html: string): string {
   return html
+    .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, " ")
     .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&amp;/g, "&")
     .replace(/\s+/g, " ")
     .trim();
 }

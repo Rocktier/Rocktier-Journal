@@ -14,7 +14,12 @@ export interface AuthApi extends AuthState {
   unlock: (password: string) => Promise<void>;
   lock: () => Promise<void>;
   resetVault: (answer: string) => Promise<void>;
-  forceCreateVault: (password: string, hintQuestion: string, hintAnswer: string) => Promise<void>;
+  forceCreateVault: (
+    password: string,
+    hintQuestion: string,
+    hintAnswer: string,
+    oldHintAnswer?: string | null,
+  ) => Promise<void>;
   restoreVault: (zipPath: string, password: string) => Promise<void>;
   fetchHint: () => Promise<string | null>;
   consumeHint: () => void;
@@ -57,10 +62,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const forceCreateVault = useCallback(
-    async (password: string, hintQuestion: string, hintAnswer: string) => {
+    async (
+      password: string,
+      hintQuestion: string,
+      hintAnswer: string,
+      oldHintAnswer: string | null = null,
+    ) => {
       setState((s) => ({ ...s, isUnlocking: true, error: null }));
       try {
-        await invoke("force_create_vault", { password, hintQuestion, hintAnswer });
+        // 旧保险箱设有提示问题时，后端会校验 oldHintAnswer（与 delete_vault 同一道闸）
+        await invoke("force_create_vault", { password, hintQuestion, hintAnswer, oldHintAnswer });
         setState((s) => ({ ...s, isAuthenticated: true, hasVault: true, isUnlocking: false }));
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);

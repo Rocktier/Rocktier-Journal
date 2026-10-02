@@ -3,7 +3,7 @@ import { useAuth } from "../hooks/AuthContext";
 import { useTranslation } from "../hooks/useTranslation";
 import JnLogo from "./JnLogo";
 
-type Mode = "unlock" | "reset" | "forceCreate";
+type Mode = "unlock" | "reset" | "noHint" | "forceCreate";
 
 /**
  * Destructive vault erasure (reset via hint, or force-create) is gated behind a
@@ -37,6 +37,8 @@ export default function LockScreen() {
 
   const [confirmPassword, setConfirmPassword] = useState("");
   const [hintQuestion, setHintQuestion] = useState("");
+  // 旧保险箱的提示答案：旧保险箱设有提示问题时，销毁它必须先答对（P0-11）
+  const [oldHintAnswer, setOldHintAnswer] = useState("");
 
   const [mode, setMode] = useState<Mode>("unlock");
   const [localError, setLocalError] = useState<string | null>(null);
@@ -46,10 +48,18 @@ export default function LockScreen() {
   const passwordRef = useRef<HTMLInputElement | null>(null);
   const answerRef = useRef<HTMLInputElement | null>(null);
 
+  const oldHintRequired = !!hint && hint.trim().length > 0;
+
   useEffect(() => {
     if (mode === "unlock") passwordRef.current?.focus();
     else answerRef.current?.focus();
   }, [mode]);
+
+  // 进入「创建新保险箱（销毁旧数据）」表单时查明旧保险箱是否设有提示问题，
+  // 设有时展示必填的旧答案输入框（后端 force_create_vault 会校验）
+  useEffect(() => {
+    if (mode === "forceCreate") void fetchHint();
+  }, [mode, fetchHint]);
 
   const currentError = localError ?? error;
 
@@ -58,6 +68,7 @@ export default function LockScreen() {
     setConfirmPassword("");
     setHintQuestion("");
     setHintAnswer("");
+    setOldHintAnswer("");
     setLocalError(null);
   };
 
@@ -76,9 +87,9 @@ export default function LockScreen() {
     if (h && h.trim().length > 0) {
       setMode("reset");
     } else {
-      setLocalError(t("lock.noHint"));
-      setMode("forceCreate");
-      consumeHint();
+      // P0-11：无提示问题 ≠ 直接进入销毁流程。先停在纯说明页，
+      // 由用户显式选择「创建新保险箱」后才进入（仍需 DELETE 确认）。
+      setMode("noHint");
     }
   };
 
@@ -100,6 +111,8 @@ export default function LockScreen() {
     if (password !== confirmPassword) return setLocalError(t("lock.mismatch"));
     if (!hintQuestion.trim()) return setLocalError(t("lock.setQuestion"));
     if (!hintAnswer.trim()) return setLocalError(t("lock.setAnswer"));
+    // 旧保险箱设有提示问题时，必须先答对才允许销毁（后端 force_create_vault 同样校验）
+    if (oldHintRequired && !oldHintAnswer.trim()) return setLocalError(t("lock.enterHintAnswer"));
     // 不可逆销毁：进入二次确认（需手动输入 DELETE）
     setPendingDestructive("forceCreate");
   };
@@ -110,7 +123,12 @@ export default function LockScreen() {
       if (pendingDestructive === "reset") {
         await resetVault(hintAnswer.trim());
       } else if (pendingDestructive === "forceCreate") {
-        await forceCreateVault(password, hintQuestion.trim(), hintAnswer.trim());
+        await forceCreateVault(
+          password,
+          hintQuestion.trim(),
+          hintAnswer.trim(),
+          oldHintRequired ? oldHintAnswer.trim() : null,
+        );
       }
       setPendingDestructive(null);
       setConfirmPhrase("");
@@ -234,6 +252,25 @@ export default function LockScreen() {
           </>
         )}
 
+        {/* NO HINT — pure explanation page, no destructive action here */}
+        {mode === "noHint" && (
+          <>
+            <p className="lock-subtitle">{t("lock.noHint")}</p>
+            <div className="lock-form">
+              <button
+                type="button"
+                className="lock-btn danger"
+                onClick={() => { setMode("forceCreate"); clearAll(); }}
+              >
+                {t("lock.createErase")}
+              </button>
+              <button type="button" className="lock-cancel" onClick={backToUnlock}>
+                {t("lock.backToUnlock")}
+              </button>
+            </div>
+          </>
+        )}
+
         {/* FORCE CREATE */}
         {mode === "forceCreate" && (
           <>
@@ -276,6 +313,21 @@ export default function LockScreen() {
                   className="lock-input"
                 />
               </div>
+              {oldHintRequired && (
+                <div className="lock-hint-section">
+                  <div className="lock-hint-display">
+                    <span className="lock-hint-q">Q:</span>
+                    <span className="lock-hint-text">{hint}</span>
+                  </div>
+                  <input
+                    type={showHintAnswer ? "text" : "password"}
+                    placeholder={t("lock.oldHintAnswer")}
+                    value={oldHintAnswer}
+                    onChange={(e) => setOldHintAnswer(e.target.value)}
+                    className="lock-input"
+                  />
+                </div>
+              )}
               <button type="submit" disabled={isUnlocking} className="lock-btn danger">
                 {isUnlocking ? t("lock.pleaseWait") : t("lock.overwriteCreate")}
               </button>

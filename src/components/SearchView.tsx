@@ -93,7 +93,7 @@ export default function SearchView({ onSelect }: Props) {
               className="search-result-item"
               role="button"
               tabIndex={0}
-              title={formatDate(r.date)}
+              title={formatDate(r.date, locale)}
               onClick={() => onSelect(r.date)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {

@@ -3,7 +3,6 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import type { Editor } from "@tiptap/core";
-import { t } from "../i18n";
 import { useTranslation } from "../hooks/useTranslation";
 
 // CommandButton — one toolbar action
