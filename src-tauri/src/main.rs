@@ -29,6 +29,7 @@ fn main() {
             vault::delete_diary,
             vault::search_diaries,
             vault::export_vault,
+            vault::restore_vault,
         ])
         .manage(vault::VaultState::new())
         .run(tauri::generate_context!())

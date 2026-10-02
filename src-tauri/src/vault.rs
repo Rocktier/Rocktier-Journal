@@ -653,7 +653,7 @@ pub fn export_vault(
         let data = fs::read(&path)
             .map_err(|e| format!("Failed to read {}: {}", filename, e))?;
 
-        zip.start_file(filename, zip::write::FileOptions::default()
+        zip.start_file(format!("entries/{}", filename), zip::write::FileOptions::default()
             .compression_method(zip::CompressionMethod::Deflated)
             .unix_permissions(0o600))
             .map_err(|e| format!("Zip write error: {}", e))?;
@@ -662,6 +662,54 @@ pub fn export_vault(
             .map_err(|e| format!("Zip data write error: {}", e))?;
 
         count += 1;
+    }
+
+    // P0-12: also back up the vault key material and the image assets so the
+    // exported file is fully self-contained and restorable on its own.
+    use std::io::Write;
+
+    // meta/ (salt, verifier, meta) — required to re-derive the key on restore.
+    let meta_dir = vault_dir.join("meta");
+    if let Ok(rd) = fs::read_dir(&meta_dir) {
+        for m in rd.flatten() {
+            let mp = m.path();
+            if mp.is_file() {
+                if let Some(n) = mp.file_name() {
+                    if let Ok(d) = fs::read(&mp) {
+                        zip.start_file(
+                            format!("meta/{}", n.to_string_lossy()),
+                            zip::write::FileOptions::default()
+                                .compression_method(zip::CompressionMethod::Deflated)
+                                .unix_permissions(0o600),
+                        )
+                        .map_err(|e| format!("Zip write error: {}", e))?;
+                        zip.write_all(&d).map_err(|e| format!("Zip data write error: {}", e))?;
+                    }
+                }
+            }
+        }
+    }
+
+    // images/ — diary picture attachments.
+    let images_dir = vault_dir.join("images");
+    if let Ok(rd) = fs::read_dir(&images_dir) {
+        for img in rd.flatten() {
+            let ip = img.path();
+            if ip.is_file() {
+                if let Some(n) = ip.file_name() {
+                    if let Ok(d) = fs::read(&ip) {
+                        zip.start_file(
+                            format!("images/{}", n.to_string_lossy()),
+                            zip::write::FileOptions::default()
+                                .compression_method(zip::CompressionMethod::Deflated)
+                                .unix_permissions(0o600),
+                        )
+                        .map_err(|e| format!("Zip write error: {}", e))?;
+                        zip.write_all(&d).map_err(|e| format!("Zip data write error: {}", e))?;
+                    }
+                }
+            }
+        }
     }
 
     zip.finish().map_err(|e| format!("Zip finalize error: {}", e))?;
@@ -707,6 +755,65 @@ fn read_entry(vault_dir: &Path, key: &[u8; crypto::KEY_LEN], date: &str) -> Resu
         .map_err(|e| format!("Failed to deserialize entry: {}", e))?;
 
     Ok(entry)
+}
+
+/// P0-12: restore a previously exported vault backup. The backup carries its
+/// own key material (salt + verifier), so the same password that created it
+/// decrypts it — entries are stored encrypted and are copied back verbatim,
+/// no re-encryption needed. Images are restored along with the entries.
+#[tauri::command]
+pub async fn restore_vault(
+    app_handle: tauri::AppHandle,
+    zip_path: String,
+    password: String,
+) -> Result<(), String> {
+    let vault_dir = resolve_vault_dir(&app_handle)?;
+    let tmp = std::env::temp_dir()
+        .join(format!("rocktier-journal-restore-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(&tmp).map_err(|e| e.to_string())?;
+
+    let result = (|| -> Result<(), String> {
+        let file = std::fs::File::open(&zip_path)
+            .map_err(|e| format!("无法打开备份文件: {e}"))?;
+        let mut archive = zip::ZipArchive::new(file)
+            .map_err(|e| format!("备份文件损坏或不是有效的备份: {e}"))?;
+        archive.extract(&tmp).map_err(|e| format!("解压备份失败: {e}"))?;
+
+        // Same file layout as a live vault's meta/ dir.
+        let salt_bytes = std::fs::read(tmp.join("meta").join(SALT_FILENAME))
+            .map_err(|_| "备份缺少 vault.salt，可能不是有效的保险箱备份".to_string())?;
+        if salt_bytes.len() != crypto::SALT_LEN {
+            return Err("备份中的 salt 已损坏".into());
+        }
+        let mut salt = [0u8; crypto::SALT_LEN];
+        salt.copy_from_slice(&salt_bytes);
+
+        let verifier_encrypted = std::fs::read(tmp.join("meta").join(VERIFIER_FILENAME))
+            .map_err(|_| "备份缺少 vault.verifier，可能不是有效的保险箱备份".to_string())?;
+
+        // Wrong password → AES-GCM tag check fails (same gate as unlock_vault).
+        let key = crypto::derive_key(&password, &salt);
+        match crypto::decrypt(&key, &verifier_encrypted) {
+            Ok(plaintext) if plaintext == VERIFIER_PLAINTEXT => { /* ok */ }
+            _ => return Err("密码错误：无法解密此备份".into()),
+        }
+
+        // Overwrite the current vault with the backup's contents.
+        for sub in [ENTRIES_DIR, "images", "meta"] {
+            let _ = std::fs::remove_dir_all(vault_dir.join(sub));
+        }
+        for sub in [ENTRIES_DIR, "images", "meta"] {
+            let from = tmp.join(sub);
+            if from.exists() {
+                copy_dir_all(&from, &vault_dir.join(sub))?;
+            }
+        }
+        Ok(())
+    })();
+
+    let _ = std::fs::remove_dir_all(&tmp);
+    result
 }
 
 fn count_words(markdown: &str) -> u32 {
@@ -755,5 +862,26 @@ fn count_words(markdown: &str) -> u32 {
         plain.push_str(&cleaned);
         plain.push(' ');
     }
-    plain.split_whitespace().count() as u32
+    // Count: CJK / kana / Hangul characters each count as 1 (they have no word
+    // boundaries), while runs of other letters count as one word each.
+    let mut count = 0u32;
+    let mut in_word = false;
+    for ch in plain.chars() {
+        let cp = ch as u32;
+        let is_cjk = (0x4E00..=0x9FFF).contains(&cp)
+            || (0x3400..=0x4DBF).contains(&cp)
+            || (0xF900..=0xFAFF).contains(&cp)
+            || (0x3040..=0x30FF).contains(&cp)
+            || (0xAC00..=0xD7A3).contains(&cp);
+        if is_cjk {
+            count += 1;
+            in_word = false;
+        } else if ch.is_whitespace() {
+            in_word = false;
+        } else if !in_word {
+            count += 1;
+            in_word = true;
+        }
+    }
+    count
 }

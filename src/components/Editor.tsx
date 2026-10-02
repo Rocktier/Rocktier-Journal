@@ -142,7 +142,8 @@ export default function Editor({ date }: Props) {
   }, [handleSave]);
 
   const wordCount = countWords(content);
-  const charCount = content.length;
+  // Count the rendered text, not the HTML markup length.
+  const charCount = stripHtml(content).length;
 
   if (loading) {
     // Skeleton — no text that implies network I/O; local disk read is near-instant
@@ -210,16 +211,31 @@ function formatDate(iso: string, locale: string): string {
 }
 
 /**
- * Count words — CJK characters count 1 each; Latin runs split on whitespace.
- * e.g. "你好 world" → 3 (你 + 好 + world)
+ * Count words — CJK / kana / Hangul characters count 1 each; Latin runs split
+ * on whitespace. e.g. "你好 world" → 3 (你 + 好 + world). Uses Intl.Segmenter
+ * when available (correct per-language segmentation) and falls back to a
+ * script-range heuristic.
  */
 function countWords(html: string): number {
   const text = stripHtml(html);
   if (!text.trim()) return 0;
-  // Count CJK chars individually
-  const cjk = (text.match(/[一-鿿]/g) || []).length;
-  // Count non-CJK word runs (whitespace-delimited, ignoring CJK-adjacent spaces)
-  const latin = text.replace(/[一-鿿]/g, " ").split(/\s+/).filter(Boolean).length;
+  const SegmenterCtor = (Intl as unknown as { Segmenter?: typeof Intl.Segmenter }).Segmenter;
+  if (SegmenterCtor) {
+    const seg = new SegmenterCtor(undefined, { granularity: "word" });
+    let n = 0;
+    for (const s of seg.segment(text)) {
+      if (s.isWordLike) n++;
+    }
+    return n;
+  }
+  // Fallback: count CJK/kana/Hangul per character, other runs per whitespace word.
+  const cjk = (
+    text.match(/[㐀-䶿一-鿿豈-﫿぀-ヿ가-힣]/gu) || []
+  ).length;
+  const latin = text
+    .replace(/[㐀-䶿一-鿿豈-﫿぀-ヿ가-힣]/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean).length;
   return cjk + latin;
 }
 

@@ -15,6 +15,7 @@ export interface AuthApi extends AuthState {
   lock: () => Promise<void>;
   resetVault: (answer: string) => Promise<void>;
   forceCreateVault: (password: string, hintQuestion: string, hintAnswer: string) => Promise<void>;
+  restoreVault: (zipPath: string, password: string) => Promise<void>;
   fetchHint: () => Promise<string | null>;
   consumeHint: () => void;
 }
@@ -103,6 +104,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, isAuthenticated: false }));
   }, []);
 
+  const restoreVault = useCallback(async (zipPath: string, password: string) => {
+    setState((s) => ({ ...s, isUnlocking: true, error: null }));
+    try {
+      await invoke("restore_vault", { zipPath, password });
+      setState((s) => ({ ...s, hasVault: true, isUnlocking: false }));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setState((s) => ({ ...s, isUnlocking: false, error: msg }));
+    }
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -112,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lock,
         resetVault,
         forceCreateVault,
+        restoreVault,
         fetchHint,
         consumeHint,
       }}

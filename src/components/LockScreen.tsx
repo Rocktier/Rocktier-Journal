@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { ask } from "@tauri-apps/plugin-dialog";
 import { useAuth } from "../hooks/AuthContext";
 import { useTranslation } from "../hooks/useTranslation";
 import JnLogo from "./JnLogo";
@@ -7,16 +6,11 @@ import JnLogo from "./JnLogo";
 type Mode = "unlock" | "reset" | "forceCreate";
 
 /**
- * Native warning dialog in Tauri, window.confirm in browser-only dev mode.
- * Same helper family as Rocktier Write's services/file.ts confirmDialog.
+ * Destructive vault erasure (reset via hint, or force-create) is gated behind a
+ * typed confirmation: the user must type DELETE, not just click a button, so a
+ * single misclick can never wipe the whole diary. See runDestructive / the
+ * lock-destroy-confirm panel below.
  */
-async function confirmDestructive(message: string): Promise<boolean> {
-  try {
-    return await ask(message, { title: "Rocktier Journal", kind: "warning" });
-  } catch {
-    return window.confirm(message);
-  }
-}
 
 /**
  * Pure authentication gate — only rendered when a vault already exists.
@@ -46,6 +40,8 @@ export default function LockScreen() {
 
   const [mode, setMode] = useState<Mode>("unlock");
   const [localError, setLocalError] = useState<string | null>(null);
+  const [pendingDestructive, setPendingDestructive] = useState<null | "reset" | "forceCreate">(null);
+  const [confirmPhrase, setConfirmPhrase] = useState("");
 
   const passwordRef = useRef<HTMLInputElement | null>(null);
   const answerRef = useRef<HTMLInputElement | null>(null);
@@ -87,25 +83,16 @@ export default function LockScreen() {
   };
 
   // ── Reset via hint answer ─────────────────────────────────────
-  const handleReset = async (e: React.FormEvent) => {
+  const handleReset = (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
     if (!hintAnswer.trim()) return setLocalError(t("lock.enterHintAnswer"));
-    // 不可逆销毁：先确认（此前点一下就没了）
-    const ok = await confirmDestructive(t("lock.eraseWarn"));
-    if (!ok) return;
-    try {
-      await resetVault(hintAnswer.trim());
-      // After reset, App.tsx sees hasVault=false → switches to SetupScreen
-      clearAll();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setLocalError(msg || t("lock.incorrectHint"));
-    }
+    // 不可逆销毁：进入二次确认（需手动输入 DELETE），不再是一键删除
+    setPendingDestructive("reset");
   };
 
   // ── Force-create (overwrite) ──────────────────────────────────
-  const handleForceCreate = async (e: React.FormEvent) => {
+  const handleForceCreate = (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
     if (!password) return setLocalError(t("lock.enterNewPassword"));
@@ -113,10 +100,27 @@ export default function LockScreen() {
     if (password !== confirmPassword) return setLocalError(t("lock.mismatch"));
     if (!hintQuestion.trim()) return setLocalError(t("lock.setQuestion"));
     if (!hintAnswer.trim()) return setLocalError(t("lock.setAnswer"));
-    // 不可逆销毁：先确认（与 reset 同一条守卫）
-    const ok = await confirmDestructive(t("lock.eraseWarn"));
-    if (!ok) return;
-    await forceCreateVault(password, hintQuestion.trim(), hintAnswer.trim());
+    // 不可逆销毁：进入二次确认（需手动输入 DELETE）
+    setPendingDestructive("forceCreate");
+  };
+
+  const runDestructive = async () => {
+    setLocalError(null);
+    try {
+      if (pendingDestructive === "reset") {
+        await resetVault(hintAnswer.trim());
+      } else if (pendingDestructive === "forceCreate") {
+        await forceCreateVault(password, hintQuestion.trim(), hintAnswer.trim());
+      }
+      setPendingDestructive(null);
+      setConfirmPhrase("");
+      clearAll();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setLocalError(msg || t("lock.incorrectHint"));
+      setPendingDestructive(null);
+      setConfirmPhrase("");
+    }
   };
 
   const backToUnlock = () => {
@@ -131,6 +135,39 @@ export default function LockScreen() {
         <JnLogo size={48} />
         <h1 className="lock-title">{t("app.name")}</h1>
         <p className="lock-tagline">{t("common.tagline")}</p>
+
+        {/* DESTRUCTIVE CONFIRM (requires typing DELETE) */}
+        {pendingDestructive && (
+          <div className="lock-destroy-confirm">
+            <p className="lock-destroy-warn">{t("lock.eraseWarn")}</p>
+            <p className="lock-destroy-hint">{t("lock.typeDelete")}</p>
+            <input
+              type="text"
+              className="lock-input"
+              placeholder="DELETE"
+              value={confirmPhrase}
+              onChange={(e) => setConfirmPhrase(e.target.value)}
+              autoFocus
+            />
+            <div className="lock-destroy-actions">
+              <button
+                type="button"
+                className="lock-btn danger"
+                disabled={confirmPhrase !== "DELETE"}
+                onClick={runDestructive}
+              >
+                {t("lock.confirmErase")}
+              </button>
+              <button
+                type="button"
+                className="lock-cancel"
+                onClick={() => { setPendingDestructive(null); setConfirmPhrase(""); }}
+              >
+                {t("common.cancel")}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* UNLOCK */}
         {mode === "unlock" && (

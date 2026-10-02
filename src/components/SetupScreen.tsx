@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useAuth } from "../hooks/AuthContext";
 import { useTranslation } from "../hooks/useTranslation";
 
@@ -8,7 +9,7 @@ import { useTranslation } from "../hooks/useTranslation";
  */
 export default function SetupScreen() {
   const { t } = useTranslation();
-  const { initVault, isUnlocking, error } = useAuth();
+  const { initVault, restoreVault, isUnlocking, error } = useAuth();
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -17,6 +18,30 @@ export default function SetupScreen() {
   const [hintAnswer, setHintAnswer] = useState("");
   const [showHintAnswer, setShowHintAnswer] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  const [restoreMode, setRestoreMode] = useState(false);
+  const [restoreFile, setRestoreFile] = useState("");
+  const [restorePassword, setRestorePassword] = useState("");
+
+  const handlePickBackup = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: "Journal Backup", extensions: ["zip"] }],
+      });
+      if (typeof selected === "string") setRestoreFile(selected);
+    } catch {
+      /* dialog cancelled */
+    }
+  };
+
+  const handleRestore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLocalError(null);
+    if (!restoreFile) return setLocalError(t("setup.chooseFile"));
+    if (!restorePassword) return setLocalError(t("setup.restorePassword"));
+    await restoreVault(restoreFile, restorePassword);
+  };
 
   const passwordRef = useRef<HTMLInputElement | null>(null);
 
@@ -103,6 +128,29 @@ export default function SetupScreen() {
             {isUnlocking ? t("lock.pleaseWait") : t("lock.createBtn")}
           </button>
         </form>
+
+        <button type="button" className="lock-forgot" onClick={() => setRestoreMode((v) => !v)}>
+          {restoreMode ? t("common.cancel") : t("setup.restore")}
+        </button>
+
+        {restoreMode && (
+          <form onSubmit={handleRestore} className="lock-form">
+            <p className="lock-subtitle">{t("setup.restoreHint")}</p>
+            <button type="button" className="lock-btn" onClick={handlePickBackup}>
+              {restoreFile ? restoreFile.split(/[\\/]/).pop() : t("setup.chooseFile")}
+            </button>
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder={t("setup.restorePassword")}
+              value={restorePassword}
+              onChange={(e) => setRestorePassword(e.target.value)}
+              className="lock-input"
+            />
+            <button type="submit" disabled={isUnlocking} className="lock-btn danger">
+              {isUnlocking ? t("lock.pleaseWait") : t("setup.restoreBtn")}
+            </button>
+          </form>
+        )}
 
         {password.length > 0 && <PasswordStrength password={password} />}
         {currentError && <p className="lock-error">{currentError}</p>}
