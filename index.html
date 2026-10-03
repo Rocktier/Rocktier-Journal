@@ -13,12 +13,14 @@
       (function () {
         try {
           var saved = localStorage.getItem("rocktier.journal.theme");
+          var mode =
+            saved === "light" || saved === "dark" || saved === "auto" ? saved : "auto";
           var theme =
-            saved === "light" || saved === "dark"
-              ? saved
-              : window.matchMedia("(prefers-color-scheme: light)").matches
+            mode === "auto"
+              ? window.matchMedia("(prefers-color-scheme: light)").matches
                 ? "light"
-                : "dark";
+                : "dark"
+              : mode;
           document.documentElement.setAttribute("data-theme", theme);
         } catch (e) {
           /* localStorage may be unavailable */

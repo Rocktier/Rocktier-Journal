@@ -50,8 +50,20 @@ export default function Settings() {
 
       <div className="settings-item">
         <label>{t("settings.theme")}</label>
-        <button onClick={toggleTheme} className="theme-toggle">
-          {theme === "dark" ? t("settings.theme.light") : t("settings.theme.dark")}
+        {/* 设置面板里的这一行是「带标签的设置项」，不是图标按钮：
+            家族统一的 28×28 .icon-btn 在侧栏底部（Sidebar.tsx）。
+            两处共用 useTheme 的同一个三态循环。 */}
+        <button
+          onClick={toggleTheme}
+          className="theme-toggle"
+          data-mode={theme}
+          title={theme === "light" ? t("settings.theme.dark") : theme === "dark" ? t("settings.theme.light") : t("sidebar.theme.auto")}
+        >
+          {theme === "light"
+            ? t("sidebar.theme.light")
+            : theme === "dark"
+              ? t("sidebar.theme.dark")
+              : t("sidebar.theme.auto")}
         </button>
       </div>
 
