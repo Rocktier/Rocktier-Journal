@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { listen } from "@tauri-apps/api/event";
 import Calendar from "./Calendar";
 import Editor from "./Editor";
@@ -17,6 +17,14 @@ export default function AppShell({ onLock }: Props) {
   const [view, setView] = useState<View>("today");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [sidebarVisible, setSidebarVisible] = useState(true);
+  /** 编辑器之外的「上一个视图」——「完成」按钮回到这里（默认时光轴）。
+   *  只记非编辑器视图：从设置页进来、按下完成，不该被弹回设置。 */
+  const [returnView, setReturnView] = useState<View>("timeline");
+
+  const navigate = useCallback((next: View) => {
+    if (next !== "today") setReturnView(next);
+    setView(next);
+  }, []);
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
@@ -48,14 +56,14 @@ export default function AppShell({ onLock }: Props) {
       {sidebarVisible && (
         <Sidebar
           currentView={view}
-          onViewChange={setView}
+          onViewChange={navigate}
           onLock={onLock}
         />
       )}
 
       <main className="app-main">
         {view === "today" && (
-          <Editor date={selectedDate ?? todayISO()} />
+          <Editor date={selectedDate ?? todayISO()} onDone={() => navigate(returnView)} />
         )}
         {view === "calendar" && (
           <Calendar onDateSelect={handleDateSelect} />

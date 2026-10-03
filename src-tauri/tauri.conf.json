@@ -57,7 +57,22 @@
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "timestampUrl": "",
-      "wix": null
+      "allowDowngrades": true,
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "English"
+        ],
+        "displayLanguageSelector": false
+      },
+      "wix": {
+        "language": "en-US",
+        "upgradeCode": "EE92BE77-5588-5391-8882-3BF32D068923"
+      }
     },
     "linux": {
       "deb": {

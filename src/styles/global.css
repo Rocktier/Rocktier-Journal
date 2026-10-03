@@ -68,7 +68,8 @@ body {
   width: 100%;
   background: var(--bg-primary);
   color: var(--text-primary);
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color var(--dur-state) var(--ease),
+              color var(--dur-state) var(--ease);
 }
 
 /* ============ Lock Screen ============ */
@@ -155,7 +156,7 @@ body {
   color: var(--text-primary);
   font-size: 14px;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color var(--dur-hover) var(--ease);
 }
 
 .lock-input:focus {
@@ -188,7 +189,7 @@ body {
   padding: 4px 0;
   text-align: center;
   width: 100%;
-  transition: color 0.1s;
+  transition: color var(--dur-hover) var(--ease);
 }
 
 .lock-forgot:hover {
@@ -214,7 +215,7 @@ body {
 .password-strength-fill {
   height: 100%;
   border-radius: 2px;
-  transition: width 0.2s;
+  transition: width var(--dur-state) var(--ease);
 }
 
 .password-strength-fill.weak { background: var(--danger); }
@@ -243,7 +244,7 @@ body {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity var(--dur-hover) var(--ease);
 }
 
 .lock-btn:hover {
@@ -324,7 +325,7 @@ body {
   cursor: pointer;
   padding: 6px 0 2px;
   text-align: center;
-  transition: color 0.1s;
+  transition: color var(--dur-hover) var(--ease);
 }
 
 .lock-cancel:hover {
@@ -364,7 +365,7 @@ body {
 }
 
 .sidebar-brand {
-  font-size: 15px;
+  font-size: var(--fs-lg);
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -398,7 +399,9 @@ body {
   font-size: 13px;
   cursor: pointer;
   text-align: left;
-  transition: background 0.1s, color 0.1s;
+  /* 规范 §10：时长只用 --dur-*，缓动只用 --ease；不写 transition: all */
+  transition: background-color var(--dur-hover) var(--ease),
+              color var(--dur-hover) var(--ease);
 }
 
 .sidebar-item:hover {
@@ -422,10 +425,21 @@ body {
   background: var(--red);
 }
 
+/* 图标槽位：inline <span> 上的 width / text-align 是无效声明（inline 盒不吃
+   width，居中靠字形自身度量）。✏ ▦ ≣ ⌕ ⚙ ☀ ☾ 各自 ascent/descent 差别很大，
+   回退字体在 Windows / macOS 上又不是同一套，看上去就是「图标没和文字对齐」，
+   且换个主题就「更没对齐」（其实只是对比度变了）。
+   现在是 inline-flex + 固定 20×20 槽：图标与文字同一条 flex 规则居中，
+   两个主题共用这一条规则（此前也不存在任何主题专属规则）。 */
 .sidebar-icon {
-  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 20px;
-  text-align: center;
+  height: 20px;
+  flex: none;
+  line-height: 1;
+  color: inherit;
 }
 
 .sidebar-bottom {
@@ -446,7 +460,8 @@ body {
   color: var(--text-tertiary);
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color var(--dur-hover) var(--ease),
+              border-color var(--dur-hover) var(--ease);
   width: calc(100% - 24px);
 }
 
@@ -464,7 +479,9 @@ body {
   font-size: 12px;
   cursor: pointer;
   width: calc(100% - 24px);
-  transition: all 0.15s;
+  transition: background-color var(--dur-hover) var(--ease),
+              color var(--dur-hover) var(--ease),
+              border-color var(--dur-hover) var(--ease);
 }
 
 .sidebar-lock:hover {
@@ -531,7 +548,7 @@ body {
   font-weight: 650;
   letter-spacing: -0.01em;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color var(--dur-hover) var(--ease);
 }
 
 .editor-title-input:focus {
@@ -543,34 +560,34 @@ body {
   font-weight: 500;
 }
 
-.editor-save {
+/* 「完成」按钮（此前是语义冗余的 Save：内容自动保存 + 页脚常驻状态条） */
+.editor-done {
   margin-left: auto;
   padding: 6px 16px;
   border-radius: var(--radius-sm);
   border: none;
   background: var(--accent);
   color: var(--on-accent);
-  font-size: 13px;
+  font-family: var(--font);
+  font-size: var(--fs-md);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color var(--dur-hover) var(--ease),
+              color var(--dur-hover) var(--ease),
+              box-shadow var(--dur-hover) var(--ease);
 }
 
-.editor-save:hover:not(:disabled) {
+.editor-done:hover:not(:disabled) {
   opacity: 0.9;
 }
 
-.editor-save:disabled {
+.editor-done:disabled {
   opacity: 0.4;
   cursor: default;
 }
 
-.editor-save.dirty {
+/* 有未落盘内容时给一圈红描边（红点不能是唯一编码：文案在页脚状态条上） */
+.editor-done.dirty {
   box-shadow: 0 0 0 1.5px var(--red);
-}
-
-.editor-save.saved {
-  background: var(--success);
-  color: #fff;
 }
 
 .editor-body {
@@ -579,7 +596,8 @@ body {
   flex-direction: column;
   min-height: 0;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  /* 原 16px：不在令牌集内，且与 .calendar-detail / .timeline-entry 的 12px 不一致 */
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
@@ -648,7 +666,9 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast);
+  transition: background-color var(--dur-fast) var(--ease),
+              color var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease);
 }
 .tbar-btn:hover:not(:disabled) {
   background: var(--bg-card-hover);
@@ -666,7 +686,8 @@ body {
 
 .tb-icon { display: inline-flex; align-items: center; justify-content: center; }
 .tb-icon.strong { font-weight: 700; font-size: 13px; }
-.tb-icon.italic { font-style: italic; font-size: 13px; font-family: Georgia, serif; }
+/* 原 font-family: Georgia —— 家族字体只有 Geist 一套，斜体由浏览器合成 */
+.tb-icon.italic { font-style: italic; font-size: 13px; font-family: var(--font); }
 .tb-icon.strike { text-decoration: line-through; font-size: 13px; }
 .tb-icon.mono { font-family: ui-monospace, monospace; font-size: 11px; }
 .tb-icon.link { font-size: 14px; }
@@ -694,7 +715,8 @@ body {
   flex: 1 1 auto;
   min-height: 100%;
   padding: 28px 32px 64px;
-  font-size: 15px;
+  /* 原 15px：不在字号档内；正文回到 --fs-lg(14px)，行高 1.8 保持 */
+  font-size: var(--fs-lg);
   line-height: 1.8;
   color: var(--text-primary);
   white-space: pre-wrap;
@@ -795,7 +817,8 @@ body {
   border: 1px solid transparent;
   background: var(--bg-card);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background-color var(--dur-hover) var(--ease),
+              border-color var(--dur-hover) var(--ease);
 }
 
 .mood-btn:hover {
@@ -853,7 +876,8 @@ body {
   color: var(--text-primary);
   cursor: pointer;
   font-size: 16px;
-  transition: all 0.1s;
+  transition: background-color var(--dur-hover) var(--ease),
+              border-color var(--dur-hover) var(--ease);
 }
 
 .calendar-nav-btn:hover {
@@ -868,7 +892,9 @@ body {
   color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.1s;
+  transition: background-color var(--dur-hover) var(--ease),
+              border-color var(--dur-hover) var(--ease),
+              color var(--dur-hover) var(--ease);
 }
 
 .calendar-today-btn:hover {
@@ -905,7 +931,8 @@ body {
   cursor: pointer;
   font-size: 13px;
   position: relative;
-  transition: all 0.1s;
+  transition: background-color var(--dur-hover) var(--ease),
+              border-color var(--dur-hover) var(--ease);
 }
 
 .calendar-cell:hover {
@@ -949,7 +976,8 @@ body {
 .calendar-dot.density-4 { opacity: 1; }
 
 .calendar-mood {
-  font-size: 9px;
+  /* 原 9px：低于家族最小字号档（--fs-2xs = 10px），且无对应令牌 */
+  font-size: var(--fs-2xs);
   position: absolute;
   top: 2px;
   right: 3px;
@@ -958,13 +986,13 @@ body {
 .calendar-detail {
   margin-top: 24px;
   padding: 20px;
-  border-radius: 16px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--bg-card);
 }
 
 .calendar-detail h3 {
-  font-size: 15px;
+  font-size: var(--fs-lg);
   font-weight: 500;
   margin-bottom: 12px;
 }
@@ -1093,7 +1121,8 @@ body {
   border: 1px solid transparent;
   background: var(--bg-card);
   cursor: pointer;
-  transition: all 0.1s;
+  transition: background-color var(--dur-hover) var(--ease),
+              border-color var(--dur-hover) var(--ease);
   text-align: left;
   color: var(--text-primary);
   font-size: 13px;
