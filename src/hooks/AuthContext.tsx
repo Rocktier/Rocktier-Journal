@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useTranslation } from "./useTranslation";
+import { localizeVaultError } from "../services/errorText";
 
 export interface AuthState {
   isAuthenticated: boolean;
@@ -28,6 +30,8 @@ export interface AuthApi extends AuthState {
 const AuthContext = createContext<AuthApi | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  /* 错误原文映射用：Rust 把错误拍平成英文串，这里换成当前语言的措辞 */
+  const { t } = useTranslation();
   const [state, setState] = useState<AuthState>({
     isAuthenticated: false,
     hasVault: false,
@@ -74,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await invoke("force_create_vault", { password, hintQuestion, hintAnswer, oldHintAnswer });
         setState((s) => ({ ...s, isAuthenticated: true, hasVault: true, isUnlocking: false }));
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
+        const msg = localizeVaultError(e instanceof Error ? e.message : String(e), t);
         setState((s) => ({ ...s, isUnlocking: false, error: msg }));
       }
     },
@@ -88,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await invoke("init_vault", { password, hintQuestion, hintAnswer });
         setState((s) => ({ ...s, isAuthenticated: true, hasVault: true, isUnlocking: false }));
       } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
+        const msg = localizeVaultError(e instanceof Error ? e.message : String(e), t);
         setState((s) => ({ ...s, isUnlocking: false, error: msg }));
       }
     },
@@ -101,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await invoke("unlock_vault", { password });
       setState((s) => ({ ...s, isAuthenticated: true, isUnlocking: false }));
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = localizeVaultError(e instanceof Error ? e.message : String(e), t);
       setState((s) => ({ ...s, isUnlocking: false, error: msg }));
     }
   }, []);
@@ -121,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await invoke("restore_vault", { zipPath, password });
       setState((s) => ({ ...s, hasVault: true, isUnlocking: false }));
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = localizeVaultError(e instanceof Error ? e.message : String(e), t);
       setState((s) => ({ ...s, isUnlocking: false, error: msg }));
     }
   }, []);
