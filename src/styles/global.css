@@ -99,18 +99,16 @@ body {
   height: 12px;
   border-radius: 50%;
   background: var(--red);
-  animation: pulse 3s ease-in-out infinite;
+  /* 家族例外（2026-10-04 用户裁定）：锁屏标题旁的签名点用母版 12-16px 档，
+     比标准 .dot-live（8px）大一档——它是 Journal 的签名时刻，优先于家族默认。
+     动画仍取自 tokens.css 母版 dotpulse，勿在本文件再造 keyframes。 */
+  animation: dotpulse 3s var(--ease) infinite;
 }
 
 .brand-dot.small {
   width: 8px;
   height: 8px;
   display: inline-block;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
 }
 
 .lock-title {
