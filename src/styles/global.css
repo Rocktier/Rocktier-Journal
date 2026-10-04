@@ -155,7 +155,6 @@ body {
   background: var(--bg-input);
   color: var(--text-primary);
   font-size: 14px;
-  outline: none;
   transition: border-color var(--dur-hover) var(--ease);
 }
 
@@ -530,7 +529,6 @@ body {
   font-size: 22px;
   font-weight: 650;
   letter-spacing: -0.01em;
-  outline: none;
   transition: border-color var(--dur-hover) var(--ease);
 }
 
@@ -694,7 +692,6 @@ body {
 
 /* Tiptap's ProseMirror root */
 .ProseMirror {
-  outline: none;
   flex: 1 1 auto;
   min-height: 100%;
   padding: 28px 32px 64px;
@@ -1250,7 +1247,6 @@ body {
   background: var(--bg-input);
   color: var(--text-primary);
   font-size: 14px;
-  outline: none;
 }
 
 .search-input:focus {
@@ -1567,7 +1563,6 @@ body {
   font-family: var(--font);
   font-size: 13px;
   color: var(--text-primary);
-  outline: none;
 }
 .license-field input:focus { border-color: var(--accent); }
 
