@@ -1,8 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod crypto;
-mod menu;
-mod vault;
+// 业务模块都编在 lib 目标里（`mod` 声明见 lib.rs），这里直接引用 lib 的导出。
+// 重复声明会得到两个不同的 crate::license_gate，`#[tauri::command]` 也会被注册两次。
+use rocktier_journal_lib::{license_gate, menu, vault};
+use tauri::Manager;
 
 fn main() {
     tauri::Builder::default()
@@ -14,6 +15,11 @@ fn main() {
             menu::build_app_menu(&app.handle().clone(), "en")?;
             // 删除/覆盖保险箱采用 7 天墓碑制（vault::tombstone_vault_dir），启动时清扫过期墓碑
             vault::cleanup_deleted_vaults(app.handle());
+            // L6 家族授权：注入落盘目录与 AppHandle（闸门发事件用）
+            if let Ok(dir) = app.path().app_data_dir() {
+                license_gate::init_license_dir(dir);
+            }
+            license_gate::init_app_handle(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -32,6 +38,8 @@ fn main() {
             vault::search_diaries,
             vault::export_vault,
             vault::restore_vault,
+            license_gate::license_status,
+            license_gate::store_receipt,
         ])
         .manage(vault::VaultState::new())
         .run(tauri::generate_context!())

@@ -396,6 +396,11 @@ pub fn save_diary(
     custom_mood: Option<String>,
     images: Vec<ImageRef>,
 ) -> Result<(), String> {
+    // L6 家族授权闸门。Journal 用**日期特例**口径：到期后仍允许保存
+    // `date ≤ 到期日` 的日记（含试用期内补写的旧日记），只拦「新建往后的日期」
+    // —— 日记是每天都要写的工具，一刀切拦死等于产品不可用。
+    // 详见 license_gate.rs 的模块说明与 FAMILY-LICENSE.md §2。
+    crate::license_gate::ensure_diary_write_allowed(&date)?;
     let vault_dir = state.path.lock().unwrap().clone()
         .ok_or("Vault is not initialized")?;
     let key = key_guard(&state)?;
@@ -629,6 +634,10 @@ pub fn export_vault(
     state: State<'_, VaultState>,
     output_path: String,
 ) -> Result<u64, String> {
+    // 导出保险箱 = 产出一个新文件，与日记读取无关，故用通用闸门。
+    // restore_vault 同样**不拦**：它是「把备份装回本机」而不是产出新内容，
+    // 拦它等于用户试用到期后连自己的备份都装不回来（见 license_gate.rs）。
+    crate::license_gate::ensure_write_allowed()?;
     let vault_dir = state.path.lock().unwrap().clone()
         .ok_or("Vault is not initialized")?;
     export_vault_to_zip(&vault_dir, &output_path)

@@ -2,10 +2,16 @@ import { useState, useEffect, useCallback } from "react";
 import { listen } from "@tauri-apps/api/event";
 import Calendar from "./Calendar";
 import Editor from "./Editor";
+import { LicenseDialog } from "./LicenseDialog";
 import Sidebar from "./Sidebar";
 import SearchView from "./SearchView";
 import Settings from "./Settings";
 import Timeline from "./Timeline";
+import {
+  licenseStatus,
+  onLicenseExpired,
+  type LicenseInfo,
+} from "../services/license";
 
 type View = "today" | "calendar" | "timeline" | "search" | "settings";
 
@@ -20,6 +26,29 @@ export default function AppShell({ onLock }: Props) {
   /** 编辑器之外的「上一个视图」——「完成」按钮回到这里（默认时光轴）。
    *  只记非编辑器视图：从设置页进来、按下完成，不该被弹回设置。 */
   const [returnView, setReturnView] = useState<View>("timeline");
+
+  /* L6 家族授权：试用状态 + 到期被拦时的激活对话框。
+     事件链为主（Rust 在闸门处 emit），catch 里的错误码判定为双保险 —— 与
+     FAMILY-LICENSE.md §2「命令层是唯一入口」一致：两道都漏才会漏。 */
+  const [license, setLicense] = useState<LicenseInfo | null>(null);
+  const [licenseOpen, setLicenseOpen] = useState(false);
+
+  const refreshLicense = useCallback(() => {
+    licenseStatus()
+      .then(setLicense)
+      .catch(() => {
+        /* 拿不到状态就当作「无授权信息」：不弹窗、不显示胶囊。
+           取不到目录不该变成一次锁死（与 Rust 侧失败安全同向）。 */
+      });
+  }, []);
+
+  useEffect(() => {
+    refreshLicense();
+    const un = onLicenseExpired(() => setLicenseOpen(true));
+    return () => {
+      void un.then((fn) => fn()).catch(() => {});
+    };
+  }, [refreshLicense]);
 
   const navigate = useCallback((next: View) => {
     if (next !== "today") setReturnView(next);
@@ -72,6 +101,14 @@ export default function AppShell({ onLock }: Props) {
         {view === "search" && <SearchView onSelect={handleDateSelect} />}
         {view === "settings" && <Settings />}
       </main>
+
+      {licenseOpen && (
+        <LicenseDialog
+          info={license}
+          onRefresh={refreshLicense}
+          onClose={() => setLicenseOpen(false)}
+        />
+      )}
     </div>
   );
 }

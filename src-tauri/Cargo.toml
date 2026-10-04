@@ -29,6 +29,9 @@ anyhow = "1"
 thiserror = "1"
 zip = "0.6"
 zeroize = "1"
+# L6 家族授权（license.rs）：Ed25519 离线验签 + 回执 base64 编解码
+ed25519-dalek = "2"
+base64 = "0.22"
 
 [features]
 default = ["custom-protocol"]
