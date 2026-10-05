@@ -3150,7 +3150,7 @@ dependencies = [
 
 [[package]]
 name = "rocktier-journal"
-version = "0.2.5"
+version = "0.2.8"
 dependencies = [
  "aes-gcm",
  "anyhow",
