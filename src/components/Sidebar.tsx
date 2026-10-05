@@ -75,7 +75,8 @@ export default function Sidebar({ currentView, onViewChange, onLock }: Props) {
     <nav className="sidebar">
       <div className="sidebar-header">
         <JnLogo size={28} />
-        <span className="sidebar-brand">Journal</span>
+        <span className="sidebar-brand">Rocktier Journal</span>
+        <span className="dot-live" aria-hidden="true" />
       </div>
       <div className="sidebar-tagline">{t("common.tagline")}</div>
 
