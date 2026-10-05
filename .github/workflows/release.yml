@@ -99,14 +99,9 @@ jobs:
       # MSIX/MSIXBundle for Microsoft Store：tauri-windows-bundle 写盘到
       # src-tauri/target/msix/，不是 gen/windows/（那只是输入模板）。
       #
-      # ROCKTIER_CHANNEL=store 关掉本应用自带的试用与激活：商店版由微软收款、
-      # 授权也由商店判定，带着自研付费墙会触发微软政策 10.8.2（第三方购买 API
-      # 须申报与逐笔认证）与 10.8.4（须披露试用范围与价格区间）→ 拒审/重审风险。
-      # Journal 存的是最私密的内容，误上付费墙的代价比其他产品更高。
-      # 上一步的 MSI + NSIS 不设该变量，保持默认 direct 渠道（官网直链）。
-      - name: Build MSIX (Microsoft Store)
-        env:
-          ROCKTIER_CHANNEL: store
+      # MSIX 直装走 direct 付费墙（微软商店渠道已弃用，2026-10-05 终裁 C3）。
+      # 若未来恢复商店渠道：本步需加 env ROCKTIER_CHANNEL: store（10.8.2/10.8.4）。
+      - name: Build MSIX
         run: npm run tauri:windows:build
 
       - name: Upload artifacts (branch)
