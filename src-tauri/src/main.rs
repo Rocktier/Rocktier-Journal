@@ -39,7 +39,7 @@ fn main() {
             vault::export_vault,
             vault::restore_vault,
             license_gate::license_status,
-            license_gate::machine_fingerprint,
+            license_gate::report_machine_fingerprint,
             license_gate::store_receipt,
         ])
         .manage(vault::VaultState::new())
