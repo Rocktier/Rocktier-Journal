@@ -4,10 +4,11 @@ import { getVersion } from "@tauri-apps/api/app";
 import { save } from "@tauri-apps/plugin-dialog";
 import { useTheme } from "../hooks/useTheme";
 import { useTranslation } from "../hooks/useTranslation";
+import { LOCALES, type Locale } from "../i18n";
 
 export default function Settings() {
   const { theme, toggleTheme } = useTheme();
-  const { t, toggleLocale, locale } = useTranslation();
+  const { t, changeLocale, locale } = useTranslation();
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [version, setVersion] = useState<string>("");
@@ -69,9 +70,19 @@ export default function Settings() {
 
       <div className="settings-item">
         <label>{t("settings.language")}</label>
-        <button onClick={toggleLocale} className="theme-toggle">
-          {t("i18n.switch")}
-        </button>
+        {/* 家族标准 8 门语言。原为「切换为中文」单按钮 —— 6 门接入后没法用。
+            原生 select：8 个选项不需要搜索，跨平台行为一致，
+            键盘与读屏器支持免费获得。选项显示 endonym（语言自称）。 */}
+        <select
+          value={locale}
+          onChange={(e) => changeLocale(e.target.value as Locale)}
+          className="theme-toggle"
+          aria-label={t("settings.language")}
+        >
+          {LOCALES.map((l) => (
+            <option key={l.code} value={l.code}>{l.endonym}</option>
+          ))}
+        </select>
       </div>
 
       <div className="settings-item">

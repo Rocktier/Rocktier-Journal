@@ -33,9 +33,6 @@ export function useTranslation() {
     syncMenuLang(next);
   }, []);
 
-  const toggleLocale = useCallback(() => {
-    changeLocale(getLocale() === "en-US" ? "zh-CN" : "en-US");
-  }, []);
 
-  return { locale, t, changeLocale, toggleLocale };
+  return { locale, t, changeLocale };
 }

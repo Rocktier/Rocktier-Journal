@@ -1,8 +1,31 @@
+import { ja_JP } from "./ja-JP";
+import { ko_KR } from "./ko-KR";
+import { de_DE } from "./de-DE";
+import { es_ES } from "./es-ES";
+import { pt_BR } from "./pt-BR";
+import { ar_SA } from "./ar-SA";
+
 // Minimal i18n: en-US default, zh-CN available. Locale persisted in localStorage under "rocktier.journal.lang".
 // 家族规范：默认英文、不跟随系统，仅在用户手动切换后记忆。
-export type Locale = "en-US" | "zh-CN";
+/* 家族标准语言表 —— 单一真源，与 PDF / CAD / Sign / MD / Compressor 同构。
+   Journal 用全码 locale（en-US / zh-CN），与其余产品用裸语言码不同 ——
+   保留全码是因为它是原有约定，Rust 侧按主 subtag 匹配，两种都吃得下。 */
+export const LOCALES = [
+  { code: "en-US", endonym: "English" },
+  { code: "zh-CN", endonym: "中文" },
+  { code: "ja-JP", endonym: "日本語" },
+  { code: "ko-KR", endonym: "한국어" },
+  { code: "de-DE", endonym: "Deutsch" },
+  { code: "es-ES", endonym: "Español" },
+  { code: "pt-BR", endonym: "Português" },
+  { code: "ar-SA", endonym: "العربية" },
+] as const;
+
+export type Locale = (typeof LOCALES)[number]["code"];
 
 const STRINGS: Record<Locale, Record<string, string>> = {
+  "ja-JP": ja_JP, "ko-KR": ko_KR, "de-DE": de_DE,
+  "es-ES": es_ES, "pt-BR": pt_BR, "ar-SA": ar_SA,
   "en-US": {
     "app.name": "Rocktier Journal",
     "common.tagline": "Offline is the best safety",
@@ -116,7 +139,6 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     "timeline.subtitle": "{n} entries · Scroll through your past",
     "timeline.empty": "No entries to show.",
     "timeline.emptyHint": "Write your first diary entry to see it here.",
-    "i18n.switch": "Switch to Chinese",
     "common.cancel": "Cancel",
     "common.confirm": "Confirm",
     // License（家族 L6，见 components/LicenseDialog.tsx 与 src-tauri/src/license_gate.rs）
@@ -269,7 +291,6 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     "timeline.subtitle": "{n} 篇日记 · 回顾你的过往",
     "timeline.empty": "暂无日记。",
     "timeline.emptyHint": "写下第一篇日记，它就会出现在这里。",
-    "i18n.switch": "Switch to English",
     "common.cancel": "取消",
     "common.confirm": "确认",
     // License（家族 L6，见 components/LicenseDialog.tsx 与 src-tauri/src/license_gate.rs）
@@ -315,9 +336,8 @@ const STORAGE_KEY = "rocktier.journal.lang";
 
 export function getLocale(): Locale {
   const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved === "en-US" || saved === "zh-CN") return saved;
-  // 家族规范：默认英文，不跟随系统语言
-  return "en-US";
+  // 家族规范：默认英文，不跟随系统语言；只记住用户手动选择
+  return LOCALES.some((l) => l.code === saved) ? (saved as Locale) : "en-US";
 }
 
 export function setLocale(loc: Locale): void {
