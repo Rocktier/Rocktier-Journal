@@ -71,10 +71,15 @@ fn trial_deadline() -> i64 {
     let Some(dir) = LICENSE_DIR.get() else {
         return i64::MAX;
     };
-    match crate::license::ensure_started(dir, now_secs()) {
-        Some(start) => start + crate::license::TRIAL_DAYS * 86_400,
-        None => i64::MAX,
-    }
+    /* trial::ensure_started 返回 i64（不再是 Option）：取不到记录时它
+       会写入当前时间并返回它，所以不再有 None 分支。 */
+    let start = crate::trial::ensure_started(
+        dir,
+        crate::APP_KEY,
+        now_secs(),
+        &crate::trial::machine_fingerprint(),
+    );
+    start + crate::license::TRIAL_DAYS * 86_400
 }
 
 /// 把 `YYYY-MM-DD` 解析成当天 00:00:00 的 Unix 秒。
