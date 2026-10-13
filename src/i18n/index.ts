@@ -1,9 +1,3 @@
-import { ja_JP } from "./ja-JP";
-import { ko_KR } from "./ko-KR";
-import { de_DE } from "./de-DE";
-import { es_ES } from "./es-ES";
-import { pt_BR } from "./pt-BR";
-import { ar_SA } from "./ar-SA";
 
 // Minimal i18n: en-US default, zh-CN available. Locale persisted in localStorage under "rocktier.journal.lang".
 // 家族规范：默认英文、不跟随系统，仅在用户手动切换后记忆。
@@ -12,20 +6,12 @@ import { ar_SA } from "./ar-SA";
    保留全码是因为它是原有约定，Rust 侧按主 subtag 匹配，两种都吃得下。 */
 export const LOCALES = [
   { code: "en-US", endonym: "English" },
-  { code: "zh-CN", endonym: "中文" },
-  { code: "ja-JP", endonym: "日本語" },
-  { code: "ko-KR", endonym: "한국어" },
-  { code: "de-DE", endonym: "Deutsch" },
-  { code: "es-ES", endonym: "Español" },
-  { code: "pt-BR", endonym: "Português" },
-  { code: "ar-SA", endonym: "العربية" },
+    { code: "zh-CN", endonym: "中文" }
 ] as const;
 
 export type Locale = (typeof LOCALES)[number]["code"];
 
 const STRINGS: Record<Locale, Record<string, string>> = {
-  "ja-JP": ja_JP, "ko-KR": ko_KR, "de-DE": de_DE,
-  "es-ES": es_ES, "pt-BR": pt_BR, "ar-SA": ar_SA,
   "en-US": {
     "app.name": "Rocktier Journal",
     "common.tagline": "Offline is the best safety",
