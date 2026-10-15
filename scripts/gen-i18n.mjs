@@ -30,17 +30,12 @@ const REPO = process.env.ROCKTIER_ROOT || join(HERE, "..", "..", "..", "..");
 const GLOSSARY = join(REPO, "docs", "rocktier", "i18n", "glossary.json");
 const INDEX = join(HERE, "..", "src", "i18n", "index.ts");
 
-/* locale = 语言码 + 区域码，与 Journal 原有的 en-US / zh-CN 同构。
-   缺区域码时 Rust 侧按主 subtag 匹配，这里保持一致：日/韩/德等用
-   常规区域码，阿拉伯语用 arabic 区域。 */
-const LANGS = [
-  { lang: "ja", locale: "ja-JP" },
-  { lang: "ko", locale: "ko-KR" },
-  { lang: "de", locale: "de-DE" },
-  { lang: "es", locale: "es-ES" },
-  { lang: "pt", locale: "pt-BR" },
-  { lang: "ar", locale: "ar-SA" },
-];
+/* 2026-10-13 家族裁定：语言收敛为 en/zh 两门 —— 非中英语种均为未审校机翻基线
+   （family.json globalRules.$locales_2026_10_13）。生成器不再产出 6 门译文：
+   留着 LANGS 等于留一条复活路径，谁跑一次本脚本，删掉的字典块全部回来。
+   Journal 用带区域码的 locale（en-US / zh-CN），Rust 侧按主 subtag 匹配。
+   scripts/i18n/<lang>.mjs 译文物保留作历史档案，不进构建。 */
+const LANGS = [];
 
 const args = process.argv.slice(2);
 const only = args.includes("--lang") ? args[args.indexOf("--lang") + 1] : null;
@@ -120,6 +115,13 @@ for (const { lang, locale } of LANGS.filter((l) => !only || l.lang === only)) {
   }
   built.set(locale, out);
   console.error(`  ✅ ${lang} (${locale}): ${out.size} 条齐全`);
+}
+
+/* 没有要生成的语言时是**正常收工**，不是缺译文 ——
+   否则 LANGS 清零后每次跑都红一次，看两次就没人看了。 */
+if (!LANGS.length) {
+  console.error("\n  ⏭️ 语言已收敛为 en/zh 两门（2026-10-13 家族裁定），无译文可生成。\n");
+  process.exit(0);
 }
 
 if (missingTotal || !built.size) {
