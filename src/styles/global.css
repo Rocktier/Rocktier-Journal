@@ -170,7 +170,9 @@ body {
   color: var(--text-tertiary);
   font-size: 14px;
   cursor: pointer;
-  padding: 4px;
+  /* 24px 命中区（2026-10-16 UX 审计实测 22px 宽） */
+  padding: 5px;
+  line-height: 1;
 }
 
 .lock-visibility-toggle:hover {
@@ -183,7 +185,8 @@ body {
   color: var(--text-tertiary);
   font-size: 11px;
   cursor: pointer;
-  padding: 4px 0;
+  /* 24px 命中区（2026-10-16 UX 审计实测 20px 高） */
+  padding: 7px 0;
   text-align: center;
   width: 100%;
   transition: color var(--dur-hover) var(--ease);
