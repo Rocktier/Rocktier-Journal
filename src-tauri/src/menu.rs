@@ -295,29 +295,36 @@ pub fn build_app_menu(app: &AppHandle, lang: &str) -> Result<(), String> {
 
     app.set_menu(menu).map_err(|e| e.to_string())?;
 
-    // ---- Wire up menu events ----
-    let app_handle = app.clone();
-    app.on_menu_event(move |_, event| {
-        match event.id().as_ref() {
-            "help_website" => open_extern(&app_handle, "https://rocktier.com"),
-            // 家族统一 hello@（其余 14 处外链全是它；danglei1024@gmail.com 是个人地址）
-            "help_feedback" => {
-                open_extern(&app_handle, "mailto:hello@rocktier.com?subject=Rocktier%20Journal%20Feedback")
-            }
-            "lock_vault" => {
-                let _ = app_handle.emit("menu:lock-vault", ());
-            }
-            "display_toggle_sidebar" => {
-                let _ = app_handle.emit("menu:toggle-sidebar", ());
-            }
-            "display_toggle_theme" => {
-                let _ = app_handle.emit("menu:toggle-theme", ());
-            }
-            _ => {}
-        }
-    });
-
     Ok(())
+}
+
+/// 菜单事件处理 —— **只从 Builder 注册一次**（见 main.rs）。
+///
+/// 2026-10-17：这段注册此前写在 `build_app_menu` 里，而该函数会被反复调用
+/// （启动建一次 + 前端挂载后按语言重建 + 每次切语言再重建）。Tauri v2 的
+/// `on_menu_event` 是把 handler **push** 进 `global_event_listeners`
+/// （`Mutex<Vec>`），派发时遍历全部调用 —— 于是第 N 次重建之后，点一下会
+/// 触发 N 次：「切换侧栏 / 切换主题」被触发偶数次 = 原地不动（用户报的
+/// 「点了没反应」），官网/反馈会开 N 个页面。
+/// 菜单可以重建（标签要跟着语言走），事件处理必须只挂一次。
+pub fn handle_menu_event(app: &AppHandle, id: &str) {
+    match id {
+        "help_website" => open_extern(app, "https://rocktier.com"),
+        // 家族统一 hello@（其余 14 处外链全是它；danglei1024@gmail.com 是个人地址）
+        "help_feedback" => {
+            open_extern(app, "mailto:hello@rocktier.com?subject=Rocktier%20Journal%20Feedback")
+        }
+        "lock_vault" => {
+            let _ = app.emit("menu:lock-vault", ());
+        }
+        "display_toggle_sidebar" => {
+            let _ = app.emit("menu:toggle-sidebar", ());
+        }
+        "display_toggle_theme" => {
+            let _ = app.emit("menu:toggle-theme", ());
+        }
+        _ => {}
+    }
 }
 
 /// 前端挂载后（以及语言切换时）调用，按当前 UI 语言重建菜单（MD 同款模式）。

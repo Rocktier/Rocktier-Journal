@@ -10,6 +10,11 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        // 菜单事件处理只在这里注册一次（其余七款产品同款写法）。
+        // 不能挂进 menu::build_app_menu —— 它每次重建菜单都会被调一次，
+        // 而 on_menu_event 是累加监听器：切语言几次，点一下就会触发几次
+        // （切换类操作被抵消 = 「点了没反应」）。详见 menu.rs 的注释。
+        .on_menu_event(|app, event| menu::handle_menu_event(app, event.id().as_ref()))
         .setup(|app| {
             // 初建用英文；前端挂载后会按持久化语言调 build_menu 重建（MD 同款模式）
             menu::build_app_menu(&app.handle().clone(), "en")?;
