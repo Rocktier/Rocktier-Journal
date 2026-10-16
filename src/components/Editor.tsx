@@ -33,6 +33,9 @@ export default function Editor({ date, onDone }: Props) {
   const [content, setContent] = useState("");
   const [title, setTitle] = useState<string | undefined>(undefined);
   const [mood, setMood] = useState<string | null>(null);
+  const [customMood, setCustomMood] = useState("");
+  const [exists, setExists] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [dirty, setDirty] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -59,10 +62,14 @@ export default function Editor({ date, onDone }: Props) {
           setContent(toStyledHtml(entry.content || ""));
           setTitle(entry.title);
           setMood(entry.mood || null);
+          setCustomMood(entry.custom_mood || "");
+          setExists(true);
         } else {
           setContent("");
           setTitle(undefined);
           setMood(null);
+          setCustomMood("");
+          setExists(false);
         }
         setDirty(false);
         dirtyRef.current = false;
@@ -100,12 +107,16 @@ export default function Editor({ date, onDone }: Props) {
         title,
         content,
         mood,
-        customMood: mood === "custom" ? null : null,
+        // 自定义心情此前写成 `mood === "custom" ? null : null` —— 两支同值，
+        // 输入的文本永远不会落盘（Batch 1 尾单）。现在：选了 ❓ 且填了名字才存。
+        customMood: mood === "custom" ? customMood.trim() || null : null,
         images: [],
       });
       setSaveStatus("saved");
       setDirty(false);
       dirtyRef.current = false;
+      // 首次自动保存后这一天就有记录了 —— 删除入口从这里开始显示。
+      setExists(true);
       return true;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -113,7 +124,7 @@ export default function Editor({ date, onDone }: Props) {
       setSaveStatus("unsaved");
       return false;
     }
-  }, [date, title, content, mood]);
+  }, [date, title, content, mood, customMood]);
 
   /** 「我写完了」：先落盘再退出。存失败就留在编辑器里（错误已在页脚显示），
    *  否则用户会带着未保存的内容离开 —— 语义上这才是「结束」的含义。 */
@@ -125,6 +136,35 @@ export default function Editor({ date, onDone }: Props) {
     }
     onDone?.();
   }, [handleSave, onDone]);
+
+  /** 删除这一天的记录：两步确认（3 秒内再点一次才执行）。
+   *  删除不可恢复，但不像销毁整库那样值得输字确认 —— 摩擦够用就好。
+   *  成功后必须压住「卸载落盘」（dirtyRef=false），
+   *  否则未存改动会在卸载时回写，把刚删的记录原地复活。 */
+  const handleDelete = useCallback(async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      window.setTimeout(() => setConfirmDelete(false), 3000);
+      return;
+    }
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    dirtyRef.current = false;
+    setDirty(false);
+    setError(null);
+    try {
+      await invoke("delete_diary", { date });
+      setContent("");
+      setTitle(undefined);
+      setMood(null);
+      setCustomMood("");
+      setExists(false);
+      setSaveStatus("saved");
+      onDone?.();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+      setConfirmDelete(false);
+    }
+  }, [confirmDelete, date, onDone]);
 
   // 卸载时（切视图 / 关窗）立刻落盘。此前只有「窗口失焦」+ 1.5s 防抖两条路径：
   // blur 不冒泡，元素失焦不会触发 window 的 blur，所以在防抖窗口内点侧栏切视图
@@ -152,7 +192,7 @@ export default function Editor({ date, onDone }: Props) {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [content, title, mood]);
+  }, [content, title, mood, customMood]);
 
   // On blur (window loses focus): save immediately if dirty.
   useEffect(() => {
@@ -213,6 +253,23 @@ export default function Editor({ date, onDone }: Props) {
         </button>
       </div>
 
+      {mood === "custom" && (
+        <div className="editor-custom-mood">
+          <input
+            type="text"
+            className="editor-custom-mood-input"
+            placeholder={t("mood.customPlaceholder")}
+            maxLength={24}
+            value={customMood}
+            onChange={(e) => {
+              setCustomMood(e.target.value);
+              setDirty(true);
+              dirtyRef.current = true;
+            }}
+          />
+        </div>
+      )}
+
       <div className="editor-title-input-wrap">
         <input
           type="text"
@@ -245,6 +302,15 @@ export default function Editor({ date, onDone }: Props) {
           {saveStatus === "unsaved" && <span className="sv-unsaved">{t("editor.unsaved")}</span>}
         </span>
         {error && <span className="editor-error">{error}</span>}
+        {exists && (
+          <button
+            onClick={handleDelete}
+            className={`editor-delete${confirmDelete ? " arming" : ""}`}
+            title={t("editor.deleteHint")}
+          >
+            {confirmDelete ? t("editor.deleteConfirm") : t("editor.delete")}
+          </button>
+        )}
       </div>
     </div>
   );

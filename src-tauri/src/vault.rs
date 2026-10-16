@@ -129,6 +129,7 @@ pub struct DiarySummary {
     pub word_count: u32,
     pub has_images: bool,
     pub mood: Option<String>,
+    pub custom_mood: Option<String>,
 }
 
 // ---- Vault State ----
@@ -516,6 +517,7 @@ pub fn list_diaries(state: State<'_, VaultState>) -> Result<Vec<DiarySummary>, S
             word_count,
             has_images: !diary.images.is_empty(),
             mood: diary.mood,
+            custom_mood: diary.custom_mood,
         });
     }
     summaries.sort_by(|a, b| b.date.cmp(&a.date));
@@ -623,6 +625,7 @@ pub fn search_diaries(
             word_count: count_words(&entry.content),
             has_images: !entry.images.is_empty(),
             mood: entry.mood,
+            custom_mood: entry.custom_mood,
         })
         .collect();
 

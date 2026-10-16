@@ -9,6 +9,7 @@ interface DiarySummary {
   word_count: number;
   has_images: boolean;
   mood: string | null;
+  custom_mood: string | null;
 }
 
 interface Props {

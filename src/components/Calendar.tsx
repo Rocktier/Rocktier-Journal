@@ -9,6 +9,7 @@ interface DiarySummary {
   word_count: number;
   has_images: boolean;
   mood: string | null;
+  custom_mood: string | null;
 }
 
 interface Props {
@@ -137,7 +138,16 @@ export default function Calendar({ onDateSelect }: Props) {
             <div className="calendar-entry-summary">
               {selectedEntry.title && <p className="calendar-entry-title">{selectedEntry.title}</p>}
               <p className="calendar-entry-words">{t("calendar.words", { n: selectedEntry.word_count })}</p>
-              {selectedEntry.mood && <p className="calendar-entry-mood">{t("calendar.mood", { m: moodLabel(selectedEntry.mood) })}</p>}
+              {selectedEntry.mood && (
+                <p className="calendar-entry-mood">
+                  {t("calendar.mood", {
+                    m:
+                      selectedEntry.mood === "custom" && selectedEntry.custom_mood
+                        ? selectedEntry.custom_mood
+                        : moodLabel(selectedEntry.mood),
+                  })}
+                </p>
+              )}
             </div>
           ) : (
             <p className="calendar-no-entry">{t("calendar.noEntry")}</p>

@@ -20,6 +20,7 @@ interface DiarySummary {
   word_count: number;
   has_images: boolean;
   mood: string | null;
+  custom_mood: string | null;
 }
 
 interface GroupedEntry {
@@ -132,7 +133,9 @@ export default function Timeline() {
                     <span className="timeline-entry-words">{t("calendar.words", { n: entry.word_count })}</span>
                   </div>
                   {entry.mood && (
-                    <span className="timeline-entry-mood">{moodMap[entry.mood] || "❓"}</span>
+                    <span className="timeline-entry-mood" title={entry.custom_mood || undefined}>
+                      {moodMap[entry.mood] || "❓"}
+                    </span>
                   )}
                 </button>
               ))}
