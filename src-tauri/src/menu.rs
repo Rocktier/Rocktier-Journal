@@ -1,5 +1,5 @@
 use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_opener::OpenerExt;
 
 /// Open a URL or mailto link — whitelist only (family rule). Previously this
@@ -137,7 +137,11 @@ pub fn build_app_menu(app: &AppHandle, lang: &str) -> Result<(), String> {
     )
     .map_err(|e| e.to_string())?;
 
+    // macOS-only：Windows 上 muda 的 hide_others 落进 `_ => {}` 点了无反应，
+    // 且 hide 是 SW_HIDE（窗口消失、无 Dock/托盘召不回）——见 findings D-42。
+    #[cfg(target_os = "macos")]
     let hide = PredefinedMenuItem::hide(app, None).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "macos")]
     let hide_others = PredefinedMenuItem::hide_others(app, None).map_err(|e| e.to_string())?;
     let quit = PredefinedMenuItem::quit(app, None).map_err(|e| e.to_string())?;
 
@@ -148,7 +152,9 @@ pub fn build_app_menu(app: &AppHandle, lang: &str) -> Result<(), String> {
         &[
             &about,
             &PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?,
+            #[cfg(target_os = "macos")]
             &hide,
+            #[cfg(target_os = "macos")]
             &hide_others,
             &PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?,
             &quit,
@@ -236,7 +242,12 @@ pub fn build_app_menu(app: &AppHandle, lang: &str) -> Result<(), String> {
 
     // ---- Window menu ----
     let minimize = PredefinedMenuItem::minimize(app, None).map_err(|e| e.to_string())?;
+    // macOS：原生全屏（有效）。Windows：muda 的 fullscreen 落进 `_ => {}` 点了
+    // 无反应，改用自定义项，由 handle_menu_event 调 set_fullscreen 真全屏。
+    #[cfg(target_os = "macos")]
     let fullscreen = PredefinedMenuItem::fullscreen(app, None).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "windows")]
+    let win_fullscreen = MenuItem::with_id(app, "win-fullscreen", "Toggle Full Screen", true, None::<&str>)?;
 
     let window_menu = Submenu::with_items(
         app,
@@ -245,7 +256,10 @@ pub fn build_app_menu(app: &AppHandle, lang: &str) -> Result<(), String> {
         &[
             &minimize,
             &PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?,
+            #[cfg(target_os = "macos")]
             &fullscreen,
+            #[cfg(target_os = "windows")]
+            &win_fullscreen,
         ],
     )
     .map_err(|e| e.to_string())?;
@@ -309,6 +323,12 @@ pub fn build_app_menu(app: &AppHandle, lang: &str) -> Result<(), String> {
 /// 菜单可以重建（标签要跟着语言走），事件处理必须只挂一次。
 pub fn handle_menu_event(app: &AppHandle, id: &str) {
     match id {
+        // Windows 真全屏（替代 muda 在 Win 上无效的 PredefinedMenuItem::fullscreen）
+        "win-fullscreen" => {
+            if let Some(win) = app.get_webview_windows().values().next().cloned() {
+                let _ = win.set_fullscreen(!win.is_fullscreen().unwrap_or(false));
+            }
+        }
         "help_website" => open_extern(app, "https://rocktier.com"),
         // 家族统一 hello@（其余 14 处外链全是它；danglei1024@gmail.com 是个人地址）
         "help_feedback" => {
