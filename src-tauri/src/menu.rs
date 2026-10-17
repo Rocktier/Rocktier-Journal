@@ -247,7 +247,9 @@ pub fn build_app_menu(app: &AppHandle, lang: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     let fullscreen = PredefinedMenuItem::fullscreen(app, None).map_err(|e| e.to_string())?;
     #[cfg(target_os = "windows")]
-    let win_fullscreen = MenuItem::with_id(app, "win-fullscreen", "Toggle Full Screen", true, None::<&str>)?;
+    let win_fullscreen =
+        MenuItem::with_id(app, "win-fullscreen", "Toggle Full Screen", true, None::<&str>)
+            .map_err(|e| e.to_string())?;
 
     let window_menu = Submenu::with_items(
         app,
