@@ -325,7 +325,7 @@ pub fn handle_menu_event(app: &AppHandle, id: &str) {
     match id {
         // Windows 真全屏（替代 muda 在 Win 上无效的 PredefinedMenuItem::fullscreen）
         "win-fullscreen" => {
-            if let Some(win) = app.get_webview_windows().values().next().cloned() {
+            if let Some(win) = app.webview_windows().values().next().cloned() {
                 let _ = win.set_fullscreen(!win.is_fullscreen().unwrap_or(false));
             }
         }
