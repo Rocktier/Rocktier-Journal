@@ -13,6 +13,7 @@ import Timeline from "./Timeline";
 import {
   licenseStatus,
   onLicenseExpired,
+  revalidateLicence,
   type LicenseInfo,
 } from "../services/license";
 
@@ -81,6 +82,13 @@ export default function AppShell({ onLock }: Props) {
       setLastCheckedAt(result.checkedAt);
       try { localStorage.setItem(UPDATE_CHECKED_KEY, String(result.checkedAt)); } catch { /* 隐私模式下忽略 */ }
       setUpdateState(result.hasUpdate ? "available" : "uptodate");
+      /* 顺带吊销复检：同一次点击、同一承诺（只在点击时联网）。revoked → 清回执，
+         授权状态回到未激活并弹激活对话框。 */
+      const verdict = await revalidateLicence();
+      if (verdict === "revoked") {
+        refreshLicense();
+        setLicenseOpen(true);
+      }
     } catch {
       setUpdateState("failed");
     } finally {

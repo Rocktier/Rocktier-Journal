@@ -46,6 +46,7 @@ fn main() {
             license_gate::license_status,
             license_gate::report_machine_fingerprint,
             license_gate::store_receipt,
+            license_gate::clear_receipt,
         ])
         .manage(vault::VaultState::new())
         .run(tauri::generate_context!())

@@ -35,7 +35,7 @@ pub const TRIAL_DAYS: i64 = 7;
 /// 能买到它。此时开启拦截会发出一个「7 天后无法解锁、且没有任何办法解锁」的包。
 /// 闸门代码已全部接好（save_diary 的日期特例 + export_vault + 前端对话框），
 /// **官网上架可购后把下面这个常量改成 `true` 即生效**，一行。
-pub const ENFORCE: bool = false;
+pub const ENFORCE: bool = true;
 
 /// 分发渠道。
 ///
