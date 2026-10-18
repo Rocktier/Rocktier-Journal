@@ -1,8 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import Calendar from "./Calendar";
 import Editor from "./Editor";
 import { LicenseDialog } from "./LicenseDialog";
+import { invoke } from "@tauri-apps/api/core";
+import { checkForUpdates, currentVersion, type UpdateResult } from "../services/updates";
+import { t } from "../i18n";
 import Sidebar from "./Sidebar";
 import SearchView from "./SearchView";
 import Settings from "./Settings";
@@ -14,6 +17,13 @@ import {
 } from "../services/license";
 
 type View = "today" | "calendar" | "timeline" | "search" | "settings";
+
+const UPDATE_CHECKED_KEY = "rocktier.journal.updateCheckedAt";
+
+/** 打包时写死，与 tag 同源 —— 不会出现系统里装着新版本而代码里写着旧版本的错位。 */
+const APP_VERSION = currentVersion();
+
+type UpdateState = "idle" | "checking" | "uptodate" | "available" | "failed";
 
 interface Props {
   onLock: () => void;
@@ -50,6 +60,34 @@ export default function AppShell({ onLock }: Props) {
     };
   }, [refreshLicense]);
 
+  /* 更新检查。状态只由用户点击推进 —— 没有任何 effect 会自动发起联网请求，
+     这是「除非你要求，应用不会联网」这条承诺的落点。 */
+  const [updateState, setUpdateState] = useState<UpdateState>("idle");
+  const [updateResult, setUpdateResult] = useState<UpdateResult | null>(null);
+  const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(() => {
+    const raw = localStorage.getItem(UPDATE_CHECKED_KEY);
+    const n = raw ? Number(raw) : 0;
+    return n > 0 ? n : null;
+  });
+  const updateChecking = useRef(false);
+
+  const runUpdateCheck = useCallback(async () => {
+    if (updateChecking.current) return;
+    updateChecking.current = true;
+    setUpdateState("checking");
+    try {
+      const result = await checkForUpdates();
+      setUpdateResult(result);
+      setLastCheckedAt(result.checkedAt);
+      try { localStorage.setItem(UPDATE_CHECKED_KEY, String(result.checkedAt)); } catch { /* 隐私模式下忽略 */ }
+      setUpdateState(result.hasUpdate ? "available" : "uptodate");
+    } catch {
+      setUpdateState("failed");
+    } finally {
+      updateChecking.current = false;
+    }
+  }, []);
+
   const navigate = useCallback((next: View) => {
     if (next !== "today") setReturnView(next);
     setView(next);
@@ -80,6 +118,16 @@ export default function AppShell({ onLock }: Props) {
     };
   }, [onLock]);
 
+  // Check for updates from menu bar (Help → 检查更新)：点击才联网
+  useEffect(() => {
+    const unlisten = listen("menu:check-updates", () => {
+      void runUpdateCheck();
+    });
+    return () => {
+      unlisten.then((f) => f()).catch(() => {});
+    };
+  }, [runUpdateCheck]);
+
   return (
     <div className={`app-shell${sidebarVisible ? "" : " sidebar-hidden"}`}>
       {sidebarVisible && (
@@ -102,6 +150,42 @@ export default function AppShell({ onLock }: Props) {
         {view === "settings" && <Settings />}
       </main>
 
+      {/* 更新检查入口。固定右下角 —— 点击才联网：启动时、工作中、后台都不检查，
+          见 services/updates.ts 头注。 */}
+      <div className={`update-corner${updateState === "available" ? " has-update" : ""}`}>
+        <button
+          type="button"
+          className="update-line"
+          onClick={() => void runUpdateCheck()}
+          disabled={updateState === "checking"}
+          title={t("update.privacyNote")}
+        >
+          <span className="update-ver">v{APP_VERSION}</span>
+          <span className="update-sep" aria-hidden="true">·</span>
+          <span className="update-action">
+            {updateState === "checking" ? t("update.checking") : t("update.check")}
+          </span>
+        </button>
+        <div className="update-note" role="status" aria-live="polite">
+          {updateState === "uptodate" && t("update.upToDate")}
+          {updateState === "failed" && t("update.failed")}
+          {updateState === "available" && updateResult && (
+            <button
+              type="button"
+              className="update-get"
+              onClick={() => void invoke("open_url", { url: updateResult.url }).catch(() => {})}
+              title={t("update.available", { v: updateResult.latest })}
+            >
+              {t("update.download", { v: updateResult.latest })}
+            </button>
+          )}
+          {updateState === "idle" &&
+            t("update.lastChecked", {
+              date: lastCheckedAt ? formatCheckedAt(lastCheckedAt) : t("update.never"),
+            })}
+        </div>
+      </div>
+
       {licenseOpen && (
         <LicenseDialog
           info={license}
@@ -120,4 +204,16 @@ function todayISO(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/**
+ * 「上次检查」的时间戳格式化。跟随界面语言 —— documentElement.lang
+ * 由 i18n 模块维护（中文界面下是 zh-CN），避免中英混排。
+ */
+function formatCheckedAt(ts: number): string {
+  try {
+    return new Date(ts).toLocaleDateString(document.documentElement.lang || "en");
+  } catch {
+    return new Date(ts).toISOString().slice(0, 10);
+  }
 }

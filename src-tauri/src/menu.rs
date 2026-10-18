@@ -60,6 +60,7 @@ struct MenuStrings {
     window: &'static str,
     help: &'static str,
     website: &'static str,
+    check_updates: &'static str,
     feedback: &'static str,
     about: &'static str,
 }
@@ -74,42 +75,49 @@ impl MenuStrings {
                 toggle_sidebar: "切换侧栏", toggle_theme: "切换日夜模式", window: "窗口",
                 help: "帮助", website: "官方网站", feedback: "反馈",
                 about: "关于 Rocktier 日记",
+                check_updates: "检查更新…",
             },
             "ja" => Self {
                 file: "ファイル", edit: "編集", view: "表示", lock: "金庫をロック",
                 toggle_sidebar: "サイドバーの切り替え", toggle_theme: "テーマを切り替え",
                 window: "ウインドウ", help: "ヘルプ", website: "公式サイト",
                 feedback: "フィードバック", about: "Rocktier Journal について",
+                check_updates: "アップデートを確認…",
             },
             "ko" => Self {
                 file: "파일", edit: "편집", view: "보기", lock: "금고 잠금",
                 toggle_sidebar: "사이드바 전환", toggle_theme: "테마 전환",
                 window: "창", help: "도움말", website: "공식 웹사이트",
                 feedback: "피드백", about: "Rocktier Journal 정보",
+                check_updates: "업데이트 확인…",
             },
             "de" => Self {
                 file: "Datei", edit: "Bearbeiten", view: "Ansicht", lock: "Tresor sperren",
                 toggle_sidebar: "Seitenleiste umschalten", toggle_theme: "Design wechseln",
                 window: "Fenster", help: "Hilfe", website: "Website",
                 feedback: "Feedback", about: "Über Rocktier Journal",
+                check_updates: "Nach Updates suchen…",
             },
             "es" => Self {
                 file: "Archivo", edit: "Editar", view: "Ver", lock: "Bloquear la cámara",
                 toggle_sidebar: "Alternar barra lateral", toggle_theme: "Cambiar tema",
                 window: "Ventana", help: "Ayuda", website: "Sitio web",
                 feedback: "Comentarios", about: "Acerca de Rocktier Journal",
+                check_updates: "Buscar actualizaciones…",
             },
             "pt" => Self {
                 file: "Arquivo", edit: "Editar", view: "Exibir", lock: "Bloquear o cofre",
                 toggle_sidebar: "Alternar barra lateral", toggle_theme: "Alternar tema",
                 window: "Janela", help: "Ajuda", website: "Site",
                 feedback: "Comentários", about: "Sobre o Rocktier Journal",
+                check_updates: "Verificar atualizações…",
             },
             "ar" => Self {
                 file: "ملف", edit: "تحرير", view: "عرض", lock: "قفل الخزنة",
                 toggle_sidebar: "تبديل الشريط الجانبي", toggle_theme: "تبديل المظهر",
                 window: "نافذة", help: "مساعدة", website: "الموقع",
                 feedback: "ملاحظات", about: "حول Rocktier Journal",
+                check_updates: "التحقق من التحديثات…",
             },
             // English is both the family default and the fallback.
             _ => Self {
@@ -117,6 +125,7 @@ impl MenuStrings {
                 toggle_sidebar: "Toggle Sidebar", toggle_theme: "Toggle Theme",
                 window: "Window", help: "Help", website: "Website",
                 feedback: "Feedback", about: "About Rocktier Journal",
+                check_updates: "Check for Updates…",
             },
         }
     }
@@ -269,6 +278,16 @@ pub fn build_app_menu(app: &AppHandle, lang: &str) -> Result<(), String> {
     // ---- Help menu ----
     // 准则 §13 标准 2 项：官网 + 反馈（原 4 项里的 Contact 与 Feedback 同为
     // mailto:hello@；Help 页链接随菜单收敛移除）。
+    // 检查更新：只 emit "menu:check-updates"，联网由前端 services/updates.ts 做。
+    let help_updates = MenuItem::with_id(
+        app,
+        "check_updates",
+        m.check_updates,
+        true,
+        None::<&str>,
+    )
+    .map_err(|e| e.to_string())?;
+
     let help_website = MenuItem::with_id(
         app,
         "help_website",
@@ -291,7 +310,7 @@ pub fn build_app_menu(app: &AppHandle, lang: &str) -> Result<(), String> {
         app,
         m.help,
         true,
-        &[&help_website, &help_feedback],
+        &[&help_updates, &help_website, &help_feedback],
     )
     .map_err(|e| e.to_string())?;
 
@@ -344,6 +363,9 @@ pub fn handle_menu_event(app: &AppHandle, id: &str) {
         }
         "display_toggle_theme" => {
             let _ = app.emit("menu:toggle-theme", ());
+        }
+        "check_updates" => {
+            let _ = app.emit("menu:check-updates", ());
         }
         _ => {}
     }
