@@ -43,6 +43,9 @@ export default function AppShell({ onLock }: Props) {
      FAMILY-LICENSE.md §2「命令层是唯一入口」一致：两道都漏才会漏。 */
   const [license, setLicense] = useState<LicenseInfo | null>(null);
   const [licenseOpen, setLicenseOpen] = useState(false);
+  /* B1：吊销复检判定 revoked 时置位，激活框顶部显示「许可已被吊销」专属通告 ——
+     回执已清、info 与试用到期无从区分，verdict 是唯一可靠的传递点。 */
+  const [licenseRevoked, setLicenseRevoked] = useState(false);
 
   const refreshLicense = useCallback(() => {
     licenseStatus()
@@ -86,6 +89,7 @@ export default function AppShell({ onLock }: Props) {
          授权状态回到未激活并弹激活对话框。 */
       const verdict = await revalidateLicence();
       if (verdict === "revoked") {
+        setLicenseRevoked(true);
         refreshLicense();
         setLicenseOpen(true);
       }
@@ -197,8 +201,9 @@ export default function AppShell({ onLock }: Props) {
       {licenseOpen && (
         <LicenseDialog
           info={license}
+          revoked={licenseRevoked}
           onRefresh={refreshLicense}
-          onClose={() => setLicenseOpen(false)}
+          onClose={() => { setLicenseOpen(false); setLicenseRevoked(false); }}
         />
       )}
     </div>
