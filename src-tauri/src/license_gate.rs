@@ -82,21 +82,33 @@ fn trial_deadline() -> i64 {
     start + crate::license::TRIAL_DAYS * 86_400
 }
 
-/// 把 `YYYY-MM-DD` 解析成当天 00:00:00 的 Unix 秒。
+/// 把 `YYYY-MM-DD` 解析成**当地午夜**的 Unix 秒（与 trial_deadline() 同量纲）。
 ///
-/// 刻意**只解析不校验**：解析不了就返回 None，由调用方按「放行」处理 ——
-/// 一个格式异常不该让用户写不进日记（失败安全方向：宁可少拦，不可拦死）。
+/// ⚠️ J1 教训：这里曾用「年×365 + 月×31」粗算，产出约 6.4e10 的伪时间戳，
+/// 与 trial_deadline() 的真实 Unix 秒（约 1.79e9）差 35 倍 —— 比较恒为 false，
+/// 「补写过去日记」的特例整个死掉，过期后连当天的日记都写不进。日期比较
+/// 必须在同一量纲上进行，没有例外。
+///
+/// 刻意**只解析不校验日历合法性之外的任何东西**：解析不了（含 DST 不存在的
+/// 午夜）就返回 None，由调用方按「放行」处理 —— 一个格式异常不该让用户写不进
+/// 日记（失败安全方向：宁可少拦，不可拦死）。
 fn date_start_secs(date: &str) -> Option<i64> {
-    let mut it = date.split('-');
-    let y: i64 = it.next()?.parse().ok()?;
-    let m: i64 = it.next()?.parse().ok()?;
-    let d: i64 = it.next()?.parse().ok()?;
-    if !(1..=12).contains(&m) || !(1..=31).contains(&d) {
-        return None;
+    let d = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").ok()?;
+    d.and_hms_opt(0, 0, 0)?
+        .and_local_timezone(chrono::Local)
+        .single()
+        .map(|dt| dt.timestamp())
+}
+
+/// 纯判定：该日记日期是否放行（`date ≤ 截止`；解析不了放行）。
+///
+/// 抽成纯函数是为了可单测 —— 闸门本体依赖进程级全局 `LICENSE_DIR`，
+/// 直接测会有测试间竞争（J1 的空断言测试正源于绕开它而丢弃了断言）。
+fn diary_date_allowed(date: &str, deadline_secs: i64) -> bool {
+    match date_start_secs(date) {
+        Some(ds) => ds <= deadline_secs,
+        None => true,
     }
-    // 以 1970 起的天数粗算即可 —— 这里只需要「同一年的先后顺序」，不需要
-    // 时区精确到秒；真正的到期判定精度是「天」，不是「秒」。
-    Some((y * 365 + y / 4 - y / 100 + y / 400) * 86_400 + (m * 31 + d) * 86_400)
 }
 
 /// Journal 专用的写闸门。
@@ -109,12 +121,7 @@ pub fn ensure_diary_write_allowed(date: &str) -> Result<(), String> {
         return Ok(());
     }
     // 已经到期：只放行到期日及之前的日记（含试用期内补写的旧日记）
-    if let Some(ds) = date_start_secs(date) {
-        if ds <= trial_deadline() {
-            return Ok(());
-        }
-    } else {
-        // 日期解析不了 —— 放行。宁可少拦一次，也不要让人写不进日记。
+    if diary_date_allowed(date, trial_deadline()) {
         return Ok(());
     }
     emit_expired();
@@ -243,14 +250,6 @@ pub fn clear_receipt() -> Result<(), String> {
 mod tests {
     use super::*;
 
-    const DAY: i64 = 86_400;
-    const T0: i64 = 1_700_000_000;
-
-    fn seed_started(dir: &std::path::Path, days_ago: i64) {
-        std::fs::create_dir_all(dir).unwrap();
-        std::fs::write(dir.join("state.bin"), (T0 - days_ago * DAY).to_string()).unwrap();
-    }
-
     /// `date_start_secs` 的单调性 —— 「到期日之前/之后」的判定全靠它。
     #[test]
     fn date_parsing_is_strictly_ordered_within_a_year() {
@@ -272,39 +271,32 @@ mod tests {
         }
     }
 
-    /// 到期后：到期日当天及之前的日记仍可保存（允许补写旧日记）。
+    /// 到期判定的完整契约（J1 回归）：到期日当天及之前的日记放行（补写旧日记），
+    /// 到期日次日及未来拦截，解析不了放行（宁可少拦，不可拦死）。
+    ///
+    /// 本测试直接测纯函数 `diary_date_allowed`，不碰进程级全局 `LICENSE_DIR` ——
+    /// J1 的旧版测试正因为绕开全局而丢掉了断言（`let _ = ensure_...()`），
+    /// 空断言放过了恒不生效的特例。
     #[test]
-    fn old_entries_remain_writable_after_expiry() {
-        let dir = std::env::temp_dir().join("rt-journal-date-gate");
-        let _ = std::fs::remove_dir_all(&dir);
-        if LICENSE_DIR.set(dir.clone()).is_err() {
-            return; // 本进程已有测试设过（Rust 测试同进程），跳过而非 panic
-        }
-        seed_started(&dir, 30); // 试用早已到期
-        assert_eq!(current_license(), crate::license::Status::Expired);
-
-        // 到期日当天：必须放行（补写旧日记是正当需求）
-        let deadline_day = trial_deadline() / DAY;
-        let fmt = |secs: i64| format!("2026-{:02}-{:02}", (secs / DAY) % 12 + 1, (secs / DAY) % 28 + 1);
-        let _ = fmt(deadline_day);
-        let _ = ensure_diary_write_allowed("2026-10-01");
-
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    /// 非法日期不得把用户挡在门外 —— 失败安全：宁可少拦，不可拦死。
-    #[test]
-    fn a_malformed_date_never_blocks_writing() {
-        let dir = std::env::temp_dir().join("rt-journal-bad-date");
-        let _ = std::fs::remove_dir_all(&dir);
-        if LICENSE_DIR.set(dir.clone()).is_err() {
-            return;
-        }
-        seed_started(&dir, 30); // 已过期
+    fn diary_date_contract_after_expiry() {
+        // 截止取 2026-10-19 12:00 本地 —— 与 trial_deadline() 同为 Unix 秒量纲。
+        let deadline = date_start_secs("2026-10-19").expect("应能解析") + 12 * 3600;
         assert!(
-            ensure_diary_write_allowed("garbage").is_ok(),
+            diary_date_allowed("2026-10-19", deadline),
+            "到期日当天的日记必须放行"
+        );
+        assert!(
+            diary_date_allowed("2026-10-01", deadline),
+            "到期日之前的日记必须放行（补写旧日记是正当需求）"
+        );
+        assert!(
+            !diary_date_allowed("2026-10-20", deadline),
+            "到期日次日的日记必须拦截"
+        );
+        assert!(!diary_date_allowed("2027-01-01", deadline), "未来日记必须拦截");
+        assert!(
+            diary_date_allowed("garbage", deadline),
             "日期解析不了时必须放行 —— 日记写不进去是灾难性体验"
         );
-        let _ = std::fs::remove_dir_all(&dir);
     }
 }
