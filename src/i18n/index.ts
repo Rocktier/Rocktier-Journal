@@ -163,6 +163,9 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     "update.never": "Never",
     "update.download": "Get {v}",
     "update.privacyNote": "Only checks when you click — the app never checks on its own",
+    "update.close": "Close",
+    "update.openReleases": "Open releases",
+    "update.openReleasesHint": "You can also open the releases page directly.",
     // ── 以下由 services/errorText.ts 映射 Rust 侧的英文错误原文 ──
     "vault.incorrectPassword": "Incorrect password.",
     "vault.passwordTooShort": "The password must be at least 8 characters.",
@@ -329,6 +332,9 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     "update.never": "从未检查",
     "update.download": "获取 {v}",
     "update.privacyNote": "点击才会联网，应用不会自动检查",
+    "update.close": "关闭",
+    "update.openReleases": "打开发布页",
+    "update.openReleasesHint": "也可以直接打开发布页查看。",
     // ── 以下由 services/errorText.ts 映射 Rust 侧的英文错误原文 ──
     "vault.incorrectPassword": "密码不正确。",
     "vault.passwordTooShort": "密码至少需要 8 个字符。",
