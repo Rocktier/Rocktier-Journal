@@ -64,7 +64,7 @@ pub fn normalize_recovery_code(code: &str) -> String {
     code
         .chars()
         .filter(|c| !c.is_whitespace() && *c != '-')
-        .map(|c| c.to_ascii_uppercase())
+        .map(char::to_ascii_uppercase)
         .collect()
 }
 

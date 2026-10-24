@@ -44,6 +44,10 @@ export default function LockScreen() {
   const [newHintQuestion, setNewHintQuestion] = useState("");
   const [newHintAnswer, setNewHintAnswer] = useState("");
 
+  // 强制创建流程（销毁旧保险箱）的表单状态，与上面的 newXxx 系列互不重名
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [hintQuestion, setHintQuestion] = useState("");
+
   const [oldHintAnswer, setOldHintAnswer] = useState("");
 
   const [mode, setMode] = useState<Mode>("unlock");

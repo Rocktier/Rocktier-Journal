@@ -586,7 +586,9 @@ fn recover_vault_at(
     }
 
     // Wrong code → AES-GCM tag failure, nothing on disk is touched.
-    let dek = open_recovery(&fs::read(&recovery_path)?, recovery_code)?;
+    let recovery_blob = fs::read(&recovery_path)
+        .map_err(|e| format!("Failed to read recovery envelope: {}", e))?;
+    let dek = open_recovery(&recovery_blob, recovery_code)?;
 
     if new_password.len() < 8 {
         return Err("Password must be at least 8 characters".to_string());
