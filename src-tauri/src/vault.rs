@@ -369,7 +369,11 @@ fn init_vault_at(
 fn seal_recovery(dek: &[u8; crypto::KEY_LEN]) -> Result<(String, Vec<u8>), String> {
     let code = crypto::generate_recovery_code();
     let rk_salt = crypto::generate_salt();
-    let rk_key = Zeroizing::new(crypto::derive_key(&code, &rk_salt));
+    // Derive the KEK from the NORMALIZED code: open_recovery normalizes the
+    // user-typed code (dashes/spaces/case all fold), so sealing with the raw
+    // dashed form would make every retyped code fail to decrypt. normalize()
+    // is idempotent, so this round-trips stably.
+    let rk_key = Zeroizing::new(crypto::derive_key(&crypto::normalize_recovery_code(&code), &rk_salt));
     let mut blob = rk_salt.to_vec();
     blob.extend_from_slice(&crypto::encrypt(&rk_key, dek)?);
     Ok((code, blob))
@@ -1448,8 +1452,10 @@ mod tests {
         let restored_key = crypto::derive_key(password, &salt);
         assert_eq!(crypto::decrypt(&restored_key, &verifier).unwrap(), VERIFIER_PLAINTEXT);
 
-        // the diary (and the image) survived the loss
-        let loaded = read_entry(&vault_dir, &restored_key, "2026-10-02").unwrap();
+        // the diary (and the image) survived the loss. v2: entries are
+        // DEK-encrypted, so open the envelope with the password key first.
+        let dek = open_dek_envelope(&vault_dir, &restored_key).unwrap();
+        let loaded = read_entry(&vault_dir, &dek, "2026-10-02").unwrap();
         assert_eq!(loaded.content, "<p>你好 world</p>");
         assert_eq!(fs::read(vault_dir.join(IMAGES_DIR).join("pic.png")).unwrap(), b"fake-png");
 
