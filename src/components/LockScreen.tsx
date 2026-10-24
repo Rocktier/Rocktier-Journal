@@ -3,7 +3,7 @@ import { useAuth } from "../hooks/AuthContext";
 import { useTranslation } from "../hooks/useTranslation";
 import JnLogo from "./JnLogo";
 
-type Mode = "unlock" | "reset" | "noHint" | "forceCreate";
+type Mode = "unlock" | "forgot" | "recover" | "reset" | "noHint" | "forceCreate";
 
 /**
  * Destructive vault erasure (reset via hint, or force-create) is gated behind a
@@ -14,7 +14,8 @@ type Mode = "unlock" | "reset" | "noHint" | "forceCreate";
 
 /**
  * Pure authentication gate — only rendered when a vault already exists.
- * Offers: unlock | forgot (hint answer → reset) | force-create (overwrite).
+ * Offers: unlock | forgot (hint → recovery code → erase as last resort) |
+ * force-create (overwrite).
  */
 export default function LockScreen() {
   const { t } = useTranslation();
@@ -23,6 +24,7 @@ export default function LockScreen() {
     isUnlocking,
     resetVault,
     forceCreateVault,
+    recoverVault,
     fetchHint,
     consumeHint,
     error,
@@ -35,9 +37,13 @@ export default function LockScreen() {
   const [hintAnswer, setHintAnswer] = useState("");
   const [showHintAnswer, setShowHintAnswer] = useState(false);
 
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [hintQuestion, setHintQuestion] = useState("");
-  // 旧保险箱的提示答案：旧保险箱设有提示问题时，销毁它必须先答对（P0-11）
+  // 恢复码重置流程（v2，2026-10-24）：忘记密码 → 恢复码 → 新密码，数据零丢失
+  const [recoveryCode, setRecoveryCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const [newHintQuestion, setNewHintQuestion] = useState("");
+  const [newHintAnswer, setNewHintAnswer] = useState("");
+
   const [oldHintAnswer, setOldHintAnswer] = useState("");
 
   const [mode, setMode] = useState<Mode>("unlock");
@@ -69,6 +75,11 @@ export default function LockScreen() {
     setHintQuestion("");
     setHintAnswer("");
     setOldHintAnswer("");
+    setRecoveryCode("");
+    setNewPassword("");
+    setNewPasswordConfirm("");
+    setNewHintQuestion("");
+    setNewHintAnswer("");
     setLocalError(null);
   };
 
@@ -80,17 +91,36 @@ export default function LockScreen() {
     await unlock(password);
   };
 
-  // ── Forgot → fetch hint, branch ───────────────────────────────
+  // ── Forgot → recall first (hint), then recovery code, erase last ──
   const handleForgot = async () => {
     setLocalError(null);
-    const h = await fetchHint();
-    if (h && h.trim().length > 0) {
-      setMode("reset");
-    } else {
-      // P0-11：无提示问题 ≠ 直接进入销毁流程。先停在纯说明页，
-      // 由用户显式选择「创建新保险箱」后才进入（仍需 DELETE 确认）。
-      setMode("noHint");
-    }
+    await fetchHint();
+    setMode("forgot");
+  };
+
+  // ── Recover: reset password via recovery code (keeps all data) ─
+  const handleRecover = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLocalError(null);
+    if (!recoveryCode.trim()) return setLocalError(t("lock.recoverCode"));
+    if (!newPassword) return setLocalError(t("lock.enterNewPassword"));
+    if (newPassword.length < 8) return setLocalError(t("lock.minChars"));
+    if (newPassword !== newPasswordConfirm) return setLocalError(t("lock.mismatch"));
+    if (!newHintQuestion.trim()) return setLocalError(t("lock.setQuestion"));
+    if (!newHintAnswer.trim()) return setLocalError(t("lock.setAnswer"));
+    void recoverVault(
+      recoveryCode.trim(),
+      newPassword,
+      newHintQuestion.trim(),
+      newHintAnswer.trim(),
+    )
+      .then(() => {
+        // 成功即已解锁（Rust 侧已置态）；新恢复码由 App 层的一次性保存卡展示
+        clearAll();
+      })
+      .catch(() => {
+        /* 错误已由 AuthContext 写入 state.error */
+      });
   };
 
   // ── Reset via hint answer ─────────────────────────────────────
@@ -218,6 +248,101 @@ export default function LockScreen() {
                 {t("lock.createErase")}
               </button>
             </div>
+          </>
+        )}
+
+        {/* FORGOT — recall (hint) first, recovery code second, erase last */}
+        {mode === "forgot" && (
+          <>
+            <p className="lock-subtitle">{t("lock.forgotTitle")}</p>
+            <div className="lock-form">
+              <p className="lock-forgot-lead">{t("lock.forgotTryFirst")}</p>
+              {hint ? (
+                <div className="lock-hint-display">
+                  <span className="lock-hint-q">Q:</span>
+                  <span className="lock-hint-text">{hint}</span>
+                </div>
+              ) : (
+                <p className="lock-forgot-lead">{t("lock.forgotNoQ")}</p>
+              )}
+              <button type="button" className="lock-btn" onClick={() => setMode("recover")}>
+                {t("lock.forgotUseCode")}
+              </button>
+              <button type="button" className="lock-forgot" onClick={backToUnlock}>
+                {t("lock.backToUnlock")}
+              </button>
+              <p className="lock-forgot-lead danger">{t("lock.forgotNoCode")}</p>
+              <button
+                type="button"
+                className="lock-forgot danger"
+                onClick={() => setMode(hint ? "reset" : "noHint")}
+              >
+                {hint ? t("lock.eraseReset") : t("lock.createErase")}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* RECOVER — reset the password with the recovery code (v2) */}
+        {mode === "recover" && (
+          <>
+            <p className="lock-subtitle">{t("lock.recoverTitle")}</p>
+            <form onSubmit={handleRecover} className="lock-form">
+              <input
+                type="text"
+                className="lock-input recovery-code-input"
+                placeholder={t("lock.recoverCodePh")}
+                value={recoveryCode}
+                onChange={(e) => setRecoveryCode(e.target.value)}
+                autoFocus
+                spellCheck={false}
+                autoCapitalize="characters"
+              />
+              <div className="lock-input-wrap">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder={t("lock.newPassword")}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="lock-input"
+                />
+                <button type="button" className="lock-visibility-toggle" onClick={() => setShowPassword((v) => !v)}>
+                  {showPassword ? "◉" : "◎"}
+                </button>
+              </div>
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder={t("lock.confirmNew")}
+                value={newPasswordConfirm}
+                onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                className="lock-input"
+              />
+              <input
+                type="text"
+                placeholder={t("lock.hintQuestion")}
+                value={newHintQuestion}
+                onChange={(e) => setNewHintQuestion(e.target.value)}
+                className="lock-input"
+              />
+              <div className="lock-input-wrap">
+                <input
+                  type={showHintAnswer ? "text" : "password"}
+                  placeholder={t("lock.hintAnswer")}
+                  value={newHintAnswer}
+                  onChange={(e) => setNewHintAnswer(e.target.value)}
+                  className="lock-input"
+                />
+                <button type="button" className="lock-visibility-toggle" onClick={() => setShowHintAnswer((v) => !v)}>
+                  {showHintAnswer ? "◉" : "◎"}
+                </button>
+              </div>
+              <button type="submit" disabled={isUnlocking} className="lock-btn">
+                {isUnlocking ? t("lock.pleaseWait") : t("lock.recoverSubmit")}
+              </button>
+              <button type="button" className="lock-cancel" onClick={() => setMode("forgot")}>
+                {t("lock.backToUnlock")}
+              </button>
+            </form>
           </>
         )}
 

@@ -1459,6 +1459,137 @@ body {
   background: var(--border-hover);
 }
 
+/* ── 恢复码保存卡（v2 信封加密，2026-10-24）────────────────────────────
+ * 阻断式 overlay（z-index 80，高于 license 的 60）：明文恢复码只存在一次，
+ * 用户点「我已保存」前不能继续。令牌同 License 块的家族规范名。 */
+.recovery-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+
+.recovery-card {
+  width: min(460px, calc(100vw - 48px));
+  max-height: min(86vh, 640px);
+  overflow-y: auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  padding: 24px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recovery-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.recovery-subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.recovery-code-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+}
+
+.recovery-code {
+  flex: 1;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+  user-select: all;
+  word-break: break-all;
+}
+
+.recovery-copy {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.recovery-copy:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.recovery-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.recovery-notes p {
+  margin: 0;
+}
+
+.recovery-threat {
+  color: var(--text-tertiary);
+}
+
+.recovery-save-btn {
+  margin-top: 4px;
+  width: 100%;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.recovery-save-btn:hover {
+  opacity: 0.9;
+}
+
+/* LockScreen 忘记密码流程的导语行 */
+.lock-forgot-lead {
+  width: 100%;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  text-align: left;
+  margin: 0;
+}
+
+.lock-forgot-lead.danger {
+  color: var(--danger);
+}
+
+/* recover 表单的恢复码输入框：等宽 + 字距，5 组分组更易核对 */
+.recovery-code-input {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  letter-spacing: 0.08em;
+}
+
 /* ── 许可与激活对话框（家族 L6）─────────────────────────────────────────
  * 拷自 Sign 的同名块，令牌已换成 Journal 自己 tokens.css 里的家族规范名
  * （--radius-sm / --text-primary / --text-secondary / --text-tertiary /

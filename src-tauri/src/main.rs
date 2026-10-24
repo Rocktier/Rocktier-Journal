@@ -35,6 +35,8 @@ fn main() {
             vault::check_vault_exists,
             vault::init_vault,
             vault::unlock_vault,
+            vault::recover_vault,
+            vault::regenerate_recovery_code,
             vault::lock_vault,
             vault::save_diary,
             vault::load_diary,

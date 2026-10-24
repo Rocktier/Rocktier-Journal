@@ -20,6 +20,54 @@ pub fn generate_salt() -> [u8; SALT_LEN] {
     rand::random()
 }
 
+/// Crockford Base32 alphabet (no I/L/O/U — transcription-ambiguous glyphs are
+/// excluded; decoding is case-insensitive, matching normalize_recovery_code).
+const RECOVERY_ALPHABET: &[u8] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+/// Generate a recovery code: 5 groups of 5 Crockford Base32 characters
+/// ("XXXXX-XXXXX-XXXXX-XXXXX-XXXXX", 25 chars ≈ 125 bits).
+///
+/// The recovery code is the second key-holder in the DEK envelope scheme
+/// (see vault.rs): it derives its own KEK that seals the same DEK the password
+/// seals, so either one unlocks the vault. 125 bits of entropy makes online
+/// brute force hopeless even before PBKDF2.
+pub fn generate_recovery_code() -> String {
+    let bytes: [u8; 16] = rand::random();
+    let mut out = String::with_capacity(29); // 25 chars + 4 dashes
+    for i in 0..25 {
+        let bit = i * 5;
+        let byte_idx = bit / 8;
+        let shift = bit % 8;
+        let v: u8 = if shift <= 3 {
+            (bytes[byte_idx] >> (3 - shift)) & 0x1f
+        } else {
+            // The 5-bit group spans two bytes.
+            let hi = (bytes[byte_idx] as u16) << 8;
+            let next = if byte_idx + 1 < bytes.len() {
+                bytes[byte_idx + 1] as u16
+            } else {
+                0
+            };
+            (((hi | next) >> (16 - 5 - shift)) & 0x1f) as u8
+        };
+        out.push(RECOVERY_ALPHABET[v as usize] as char);
+        if (i + 1) % 5 == 0 && i != 24 {
+            out.push('-');
+        }
+    }
+    out
+}
+
+/// Normalize a user-typed recovery code before deriving its KEK: uppercase,
+/// drop whitespace and dashes (people retype codes with all kinds of spacing).
+pub fn normalize_recovery_code(code: &str) -> String {
+    code
+        .chars()
+        .filter(|c| !c.is_whitespace() && *c != '-')
+        .map(|c| c.to_ascii_uppercase())
+        .collect()
+}
+
 pub fn encrypt(key: &[u8; KEY_LEN], plaintext: &[u8]) -> Result<Vec<u8>, String> {
     let cipher = Aes256Gcm::new_from_slice(key)
         .map_err(|e| format!("Key init error: {}", e))?;
@@ -98,5 +146,27 @@ mod tests {
         let key2 = derive_key("same_password", &salt2);
 
         assert_ne!(key1, key2);
+    }
+
+    /// Recovery codes: 5 groups of 5 Crockford Base32 chars, no ambiguous
+    /// glyphs, unique per call, and normalization tolerates retyping habits.
+    #[test]
+    fn test_recovery_code_format_and_normalization() {
+        let code = generate_recovery_code();
+        assert_eq!(code.len(), 29, "expected XXXXX-XXXXX-XXXXX-XXXXX-XXXXX");
+        let groups: Vec<&str> = code.split('-').collect();
+        assert_eq!(groups.len(), 5);
+        for g in &groups {
+            assert_eq!(g.len(), 5);
+            assert!(g.chars().all(|c| c.is_ascii_digit() || ('A'..='Z').contains(&c)));
+            assert!(!g.contains('I') && !g.contains('L') && !g.contains('O') && !g.contains('U'));
+        }
+        // Two codes must differ (125-bit space).
+        assert_ne!(code, generate_recovery_code());
+
+        // Normalization: lowercase + spaces + dashes all fold into the same key.
+        let spaced = format!("{} {}", &code[..5], &code[6..]);
+        assert_eq!(normalize_recovery_code(&code), normalize_recovery_code(&spaced));
+        assert_eq!(normalize_recovery_code(&code), normalize_recovery_code(&code.to_lowercase()));
     }
 }

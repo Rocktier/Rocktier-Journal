@@ -11,6 +11,14 @@ const VAULT_DIRNAME: &str = ".rocktier-journal";
 const SALT_FILENAME: &str = "vault.salt";
 const META_FILENAME: &str = "vault.meta";
 const VERIFIER_FILENAME: &str = "vault.verifier";
+/// v2: envelope holding the DEK sealed by the password KEK.
+/// Layout: [nonce(12)][encrypt(KEK_password, DEK)] — exactly what
+/// `crypto::encrypt` writes.
+const DEK_FILENAME: &str = "vault.dek";
+/// v2: envelope holding the same DEK sealed by the recovery-code KEK.
+/// Layout: [rk_salt(16)][nonce(12)][encrypt(KEK_recovery, DEK)].
+const RECOVERY_FILENAME: &str = "vault.recovery";
+const RECOVERY_SALT_LEN: usize = crypto::SALT_LEN;
 const ENTRIES_DIR: &str = "entries";
 const IMAGES_DIR: &str = "images";
 /// Prefix of tombstoned vault dirs (see `tombstone_vault_dir`). Must stay in
@@ -21,6 +29,17 @@ const TOMBSTONE_RETENTION_DAYS: i64 = 7;
 const RKD_MAGIC: &[u8] = b"RKDJ";
 const RKD_VERSION: u32 = 1;
 const VERIFIER_PLAINTEXT: &[u8] = b"ROCKTIER_VAULT_OK";
+
+/// Vault layout version. v1 (pre-2026-10-24): the AES key was derived from the
+/// password directly, so forgetting the password meant losing the diary.
+/// v2: the key is a random DEK sealed in TWO envelopes — `vault.dek` (password
+/// KEK) and `vault.recovery` (recovery-code KEK) — so either holder unlocks.
+/// The version field is informational: the v1/v2 check at runtime is the
+/// presence of `vault.dek`, because a v1 vault gets migrated on first unlock.
+/// Migration is lossless: DEK := the old password-derived key (which is
+/// exactly what the existing .rkd entries were encrypted with), so no entry
+/// is ever re-encrypted.
+const VAULT_VERSION: u32 = 2;
 
 /// Legacy identifier (pre-0.2.x) whose app-data dir may hold an existing vault.
 const LEGACY_IDENTIFIER_DIR: &str = "com.rocktier.journal";
@@ -211,7 +230,7 @@ pub fn check_vault_exists(state: State<'_, VaultState>, app_handle: tauri::AppHa
 /// Force-create a new vault even if one already exists (destroy old data).
 /// When the old vault has a hint, `old_hint_answer` must match it — same gate
 /// as `delete_vault`; without a hint the frontend's typed DELETE confirmation
-/// is the only guard.
+/// is the only guard. Returns the new vault's recovery code (shown once).
 #[tauri::command]
 pub fn force_create_vault(
     state: State<'_, VaultState>,
@@ -220,7 +239,7 @@ pub fn force_create_vault(
     hint_question: String,
     hint_answer: String,
     old_hint_answer: Option<String>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     if password.len() < 8 {
         return Err("Password must be at least 8 characters".to_string());
     }
@@ -236,11 +255,12 @@ pub fn force_create_vault(
     *state.path.lock().unwrap() = None;
     *state.salt.lock().unwrap() = None;
 
-    init_vault_at(&vault_dir, &password, &hint_question, &hint_answer).map(|(key, salt)| {
-        *state.key.lock().unwrap() = Some(*key);
-        *state.path.lock().unwrap() = Some(vault_dir);
-        *state.salt.lock().unwrap() = Some(salt);
-    })
+    let (dek, salt, recovery_code) =
+        init_vault_at(&vault_dir, &password, &hint_question, &hint_answer)?;
+    *state.key.lock().unwrap() = Some(*dek);
+    *state.path.lock().unwrap() = Some(vault_dir);
+    *state.salt.lock().unwrap() = Some(salt);
+    Ok(recovery_code)
 }
 
 #[tauri::command]
@@ -250,27 +270,31 @@ pub fn init_vault(
     password: String,
     hint_question: String,
     hint_answer: String,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let vault_dir = resolve_vault_dir(&app_handle)?;
 
-    let (key, salt) = init_vault_at(&vault_dir, &password, &hint_question, &hint_answer)?;
+    let (dek, salt, recovery_code) = init_vault_at(&vault_dir, &password, &hint_question, &hint_answer)?;
 
-    *state.key.lock().unwrap() = Some(*key);
+    *state.key.lock().unwrap() = Some(*dek);
     *state.path.lock().unwrap() = Some(vault_dir);
     *state.salt.lock().unwrap() = Some(salt);
-    Ok(())
+    Ok(recovery_code)
 }
 
 /// Core vault creation, shared by the `init_vault` command and tests: builds
 /// the directory structure and writes salt / meta / verifier at the vault
 /// ROOT (that is where `unlock_vault` and `get_hint` read them at runtime).
-/// Returns the derived key and generated salt.
+///
+/// v2 layout: the diary key is a random DEK, sealed twice — `vault.dek` by the
+/// password KEK and `vault.recovery` by a fresh recovery code. Returns the DEK,
+/// the salt and the recovery code (the ONLY time the code is available in
+/// plaintext — the envelope can only be opened, never read back).
 fn init_vault_at(
     vault_dir: &Path,
     password: &str,
     hint_question: &str,
     hint_answer: &str,
-) -> Result<(Zeroizing<[u8; crypto::KEY_LEN]>, [u8; crypto::SALT_LEN]), String> {
+) -> Result<(Zeroizing<[u8; crypto::KEY_LEN]>, [u8; crypto::SALT_LEN], String), String> {
     if password.len() < 8 {
         return Err("Password must be at least 8 characters".to_string());
     }
@@ -299,15 +323,17 @@ fn init_vault_at(
     fs::write(&salt_path, salt)
         .map_err(|e| format!("Failed to write salt: {}", e))?;
 
-    // Derive key from password + salt
+    // Password KEK — only ever seals envelopes and the verifier, never entries.
     let key = Zeroizing::new(crypto::derive_key(password, &salt));
+    // The DEK that actually encrypts diary entries.
+    let dek = Zeroizing::new(rand::random::<[u8; crypto::KEY_LEN]>());
 
     // Hash hint answer (case-insensitive, trimmed)
     let answer_hash = crypto::hash_hint_answer(hint_answer);
 
     // Save vault metadata
     let meta = VaultMeta {
-        version: 1,
+        version: VAULT_VERSION,
         created_at: chrono::Utc::now().to_rfc3339(),
         last_accessed: chrono::Utc::now().to_rfc3339(),
         hint_question: Some(hint_question.trim().to_string()),
@@ -326,7 +352,78 @@ fn init_vault_at(
     fs::write(&verifier_path, &verifier_encrypted)
         .map_err(|e| format!("Failed to write verifier: {}", e))?;
 
-    Ok((key, salt))
+    // DEK envelope #1: sealed by the password KEK.
+    fs::write(vault_dir.join(DEK_FILENAME), crypto::encrypt(&key, &dek[..])?)
+        .map_err(|e| format!("Failed to write key envelope: {}", e))?;
+
+    // DEK envelope #2: sealed by the recovery code KEK.
+    let (recovery_code, recovery_blob) = seal_recovery(&dek)?;
+    fs::write(vault_dir.join(RECOVERY_FILENAME), &recovery_blob)
+        .map_err(|e| format!("Failed to write recovery envelope: {}", e))?;
+
+    Ok((dek, salt, recovery_code))
+}
+
+/// Seal `dek` under a freshly generated recovery code.
+/// Returns (recovery_code, envelope_bytes) — the code is plaintext only here.
+fn seal_recovery(dek: &[u8; crypto::KEY_LEN]) -> Result<(String, Vec<u8>), String> {
+    let code = crypto::generate_recovery_code();
+    let rk_salt = crypto::generate_salt();
+    let rk_key = Zeroizing::new(crypto::derive_key(&code, &rk_salt));
+    let mut blob = rk_salt.to_vec();
+    blob.extend_from_slice(&crypto::encrypt(&rk_key, dek)?);
+    Ok((code, blob))
+}
+
+/// Open a recovery envelope with a user-typed code. Wrong code → AES-GCM tag
+/// check fails (same gate as a wrong password). The code is normalized
+/// (uppercase, dashes/spaces dropped) before deriving the KEK.
+fn open_recovery(blob: &[u8], code: &str) -> Result<Zeroizing<[u8; crypto::KEY_LEN]>, String> {
+    if blob.len() < RECOVERY_SALT_LEN {
+        return Err("Recovery data is corrupted".to_string());
+    }
+    let mut rk_salt = [0u8; RECOVERY_SALT_LEN];
+    rk_salt.copy_from_slice(&blob[..RECOVERY_SALT_LEN]);
+    let rk_key = Zeroizing::new(crypto::derive_key(&crypto::normalize_recovery_code(code), &rk_salt));
+    let plain = crypto::decrypt(&rk_key, &blob[RECOVERY_SALT_LEN..])
+        .map_err(|_| "Incorrect recovery code".to_string())?;
+    if plain.len() != crypto::KEY_LEN {
+        return Err("Recovery envelope is corrupted".to_string());
+    }
+    let mut dek = [0u8; crypto::KEY_LEN];
+    dek.copy_from_slice(&plain);
+    Ok(Zeroizing::new(dek))
+}
+
+/// Read the DEK out of the password envelope (`vault.dek`). Wrong password →
+/// AES-GCM tag check fails; a truncated/corrupt envelope is reported apart
+/// from a wrong password so the UI can say "vault damaged" instead of
+/// "wrong password" (the two need different user actions).
+fn open_dek_envelope(
+    vault_dir: &Path,
+    key: &[u8; crypto::KEY_LEN],
+) -> Result<Zeroizing<[u8; crypto::KEY_LEN]>, String> {
+    let blob = fs::read(vault_dir.join(DEK_FILENAME))
+        .map_err(|e| format!("Failed to read key envelope: {}", e))?;
+    let plain = crypto::decrypt(key, &blob)
+        .map_err(|_| "DEK_ENVELOPE_UNDECRYPTABLE".to_string())?;
+    if plain.len() != crypto::KEY_LEN {
+        return Err("DEK_ENVELOPE_CORRUPT".to_string());
+    }
+    let mut dek = [0u8; crypto::KEY_LEN];
+    dek.copy_from_slice(&plain);
+    Ok(Zeroizing::new(dek))
+}
+
+/// What `unlock_vault` reports back to the UI. `recovery_code` is Some only on
+/// the one-time v1→v2 migration (the code exists in plaintext nowhere else —
+/// the envelope can be opened but never read back).
+#[derive(Debug, Serialize)]
+pub struct UnlockOutcome {
+    /// true = this unlock migrated a v1 vault to v2 (envelopes were written).
+    pub migrated: bool,
+    /// The freshly generated recovery code, shown once by the UI.
+    pub recovery_code: Option<String>,
 }
 
 #[tauri::command]
@@ -334,7 +431,7 @@ pub fn unlock_vault(
     state: State<'_, VaultState>,
     app_handle: tauri::AppHandle,
     password: String,
-) -> Result<(), String> {
+) -> Result<UnlockOutcome, String> {
     let vault_dir = resolve_vault_dir(&app_handle)?;
 
     if !vault_dir.exists() {
@@ -372,12 +469,214 @@ pub fn unlock_vault(
         _ => return Err("Incorrect password".to_string()),
     }
 
+    // The in-state key becomes the DEK from here on. Two paths:
+    //
+    // v2 (vault.dek present): open the envelope. A decrypt failure with a
+    //     correct password means the envelope itself is damaged — a different
+    //     problem from a wrong password, so it is reported distinctly.
+    // v1 (no vault.dek): transparent migration. DEK := the password-derived
+    //     key, which is exactly what every existing .rkd entry was encrypted
+    //     with — so entries need no re-encryption. We then write both envelopes
+    //     (a brand-new recovery code is generated and returned once) and stamp
+    //     the meta version. If envelope writing fails we still unlock with the
+    //     derived key: refusing to open a perfectly readable vault over a
+    //     failed upgrade would be hostile; the next unlock retries.
+    let dek = if vault_dir.join(DEK_FILENAME).exists() {
+        match open_dek_envelope(&vault_dir, &key) {
+            Ok(dek) => dek,
+            Err(e) if e == "DEK_ENVELOPE_UNDECRYPTABLE" || e == "DEK_ENVELOPE_CORRUPT" => {
+                return Err(
+                    "Vault key envelope is damaged — restore from a backup (the password is correct)."
+                        .to_string(),
+                );
+            }
+            Err(e) => return Err(e),
+        }
+    } else {
+        // v1 → v2 transparent migration: DEK := the password-derived key,
+        // which is exactly what every existing .rkd entry was encrypted with.
+        // Both envelopes are written and a one-time recovery code is issued.
+        // Envelope write failures are tolerated inside migrate_v1_to_v2 (a
+        // readable vault must still open; the next unlock retries).
+        let dek = Zeroizing::new(*key);
+        let recovery_code = migrate_v1_to_v2(&vault_dir, &key)?;
+
+        *state.key.lock().unwrap() = Some(*dek);
+        *state.path.lock().unwrap() = Some(vault_dir);
+        *state.salt.lock().unwrap() = Some(salt);
+        return Ok(UnlockOutcome {
+            migrated: true,
+            recovery_code: Some(recovery_code),
+        });
+    };
+
     // Update state
-    *state.key.lock().unwrap() = Some(*key);
+    *state.key.lock().unwrap() = Some(*dek);
     *state.path.lock().unwrap() = Some(vault_dir);
     *state.salt.lock().unwrap() = Some(salt);
 
-    Ok(())
+    Ok(UnlockOutcome {
+        migrated: false,
+        recovery_code: None,
+    })
+}
+
+/// Best-effort meta version stamp for the v1→v2 migration. The runtime v1/v2
+/// check is the presence of `vault.dek`; this field is informational only,
+/// so failures are deliberately ignored (migration must not block unlocking).
+fn bump_meta_version(vault_dir: &Path, version: u32) -> Result<(), String> {
+    let meta_path = vault_dir.join(META_FILENAME);
+    let bytes = fs::read(&meta_path).map_err(|e| e.to_string())?;
+    let mut meta: VaultMeta = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+    meta.version = version;
+    let json = serde_json::to_vec(&meta).map_err(|e| e.to_string())?;
+    fs::write(&meta_path, json).map_err(|e| e.to_string())
+}
+
+/// Reset the vault password with the recovery code, KEEPING all diary data.
+///
+/// First principles: the recovery code and the password are two seals over the
+/// same DEK. Presenting the code re-opens the DEK, so the password can be
+/// re-sealed around it without touching a single entry. A fresh recovery code
+/// is issued (the old one is burned) and returned once.
+#[tauri::command]
+pub fn recover_vault(
+    state: State<'_, VaultState>,
+    app_handle: tauri::AppHandle,
+    recovery_code: String,
+    new_password: String,
+    hint_question: String,
+    hint_answer: String,
+) -> Result<String, String> {
+    let vault_dir = resolve_vault_dir(&app_handle)?;
+    let (dek, new_salt, new_code) =
+        recover_vault_at(&vault_dir, &recovery_code, &new_password, &hint_question, &hint_answer)?;
+
+    // Leave the vault unlocked on the new password (the user just proved
+    // ownership of the DEK; making them type the new password again is ceremony).
+    zeroize_state_key(&state);
+    *state.key.lock().unwrap() = Some(*dek);
+    *state.path.lock().unwrap() = Some(vault_dir);
+    *state.salt.lock().unwrap() = Some(new_salt);
+    Ok(new_code)
+}
+
+/// Core password reset, shared by the `recover_vault` command and tests:
+/// open the DEK with the recovery code, re-seal everything around the SAME dek
+/// (entries are never re-encrypted), burn the used code and issue a new one.
+fn recover_vault_at(
+    vault_dir: &Path,
+    recovery_code: &str,
+    new_password: &str,
+    hint_question: &str,
+    hint_answer: &str,
+) -> Result<(Zeroizing<[u8; crypto::KEY_LEN]>, [u8; crypto::SALT_LEN], String), String> {
+    if !vault_dir.exists() {
+        return Err("Vault does not exist. Please create one first.".to_string());
+    }
+    let recovery_path = vault_dir.join(RECOVERY_FILENAME);
+    if !recovery_path.exists() {
+        // A v1 vault that was never unlocked has no envelope yet — it is
+        // upgraded on the first successful unlock. Say so plainly instead of
+        // "incorrect code".
+        return Err(
+            "This vault has no recovery code yet. Unlock it once with your password — the first unlock upgrades the vault and issues a recovery code."
+                .to_string(),
+        );
+    }
+
+    // Wrong code → AES-GCM tag failure, nothing on disk is touched.
+    let dek = open_recovery(&fs::read(&recovery_path)?, recovery_code)?;
+
+    if new_password.len() < 8 {
+        return Err("Password must be at least 8 characters".to_string());
+    }
+    if hint_question.trim().is_empty() {
+        return Err("Hint question is required".to_string());
+    }
+    if hint_answer.trim().is_empty() {
+        return Err("Hint answer is required".to_string());
+    }
+
+    let new_salt = crypto::generate_salt();
+    let new_key = Zeroizing::new(crypto::derive_key(new_password, &new_salt));
+    fs::write(vault_dir.join(SALT_FILENAME), new_salt)
+        .map_err(|e| format!("Failed to write salt: {}", e))?;
+    fs::write(
+        vault_dir.join(VERIFIER_FILENAME),
+        crypto::encrypt(&new_key, VERIFIER_PLAINTEXT)?,
+    )
+    .map_err(|e| format!("Failed to write verifier: {}", e))?;
+    fs::write(
+        vault_dir.join(DEK_FILENAME),
+        crypto::encrypt(&new_key, &dek[..])?,
+    )
+    .map_err(|e| format!("Failed to write key envelope: {}", e))?;
+
+    // Refresh the hint question/answer alongside the new password.
+    let meta = VaultMeta {
+        version: VAULT_VERSION,
+        created_at: chrono::Utc::now().to_rfc3339(),
+        last_accessed: chrono::Utc::now().to_rfc3339(),
+        hint_question: Some(hint_question.trim().to_string()),
+        hint_answer_hash: Some(crypto::hash_hint_answer(hint_answer.trim())),
+    };
+    fs::write(
+        vault_dir.join(META_FILENAME),
+        serde_json::to_vec(&meta).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| format!("Failed to write meta: {}", e))?;
+
+    // Burn the used code, issue a new one.
+    let (new_code, recovery_blob) = seal_recovery(&dek)?;
+    fs::write(&recovery_path, &recovery_blob)
+        .map_err(|e| format!("Failed to write recovery envelope: {}", e))?;
+
+    Ok((dek, new_salt, new_code))
+}
+
+/// Re-issue the recovery code (old one stops working). Requires the vault to
+/// be unlocked — the caller already holds the DEK. The DEK itself is NOT
+/// rotated: this only replaces the second envelope, so diary data is untouched.
+#[tauri::command]
+pub fn regenerate_recovery_code(state: State<'_, VaultState>) -> Result<String, String> {
+    let vault_dir = state
+        .path
+        .lock()
+        .unwrap()
+        .clone()
+        .ok_or("Vault is not initialized")?;
+    let dek = key_guard(&state)?;
+    regenerate_recovery_code_at(&vault_dir, &dek)
+}
+
+/// Core re-issue, shared by the command and tests.
+fn regenerate_recovery_code_at(
+    vault_dir: &Path,
+    dek: &[u8; crypto::KEY_LEN],
+) -> Result<String, String> {
+    let (code, blob) = seal_recovery(dek)?;
+    fs::write(vault_dir.join(RECOVERY_FILENAME), &blob)
+        .map_err(|e| format!("Failed to write recovery envelope: {}", e))?;
+    Ok(code)
+}
+
+/// v1→v2 migration core, shared by `unlock_vault` and tests: write both
+/// envelopes around the password-derived key (which IS the old entry key, so
+/// entries stay readable) and issue the one-time recovery code. Envelope
+/// write failures are tolerated by the caller (a readable vault must still
+/// open; the next unlock retries) — hence the Result here is only for the
+/// seal step, which cannot realistically fail.
+fn migrate_v1_to_v2(
+    vault_dir: &Path,
+    key: &[u8; crypto::KEY_LEN],
+) -> Result<String, String> {
+    let dek_blob = crypto::encrypt(key, key)?;
+    let _ = fs::write(vault_dir.join(DEK_FILENAME), &dek_blob);
+    let (recovery_code, recovery_blob) = seal_recovery(key)?;
+    let _ = fs::write(vault_dir.join(RECOVERY_FILENAME), &recovery_blob);
+    let _ = bump_meta_version(vault_dir, VAULT_VERSION);
+    Ok(recovery_code)
 }
 
 #[tauri::command]
@@ -701,10 +1000,17 @@ fn export_vault_to_zip(vault_dir: &Path, output_path: &str) -> Result<u64, Strin
     // Key material (salt, verifier, meta) — required to re-derive the key on
     // restore. It lives at the vault ROOT, not in a meta/ subdir; salt and
     // verifier are mandatory for a restorable backup, meta is best-effort.
+    // v2 envelopes (vault.dek / vault.recovery) are best-effort too: a backup
+    // that carries them is self-contained — restore it anywhere and unlock
+    // with the original password (or recover with the recovery code) with all
+    // entries intact. A v1-era backup simply lacks them; restoring it and
+    // unlocking once re-issues them (v1→v2 migration).
     for (name, required) in [
         (SALT_FILENAME, true),
         (VERIFIER_FILENAME, true),
         (META_FILENAME, false),
+        (DEK_FILENAME, false),
+        (RECOVERY_FILENAME, false),
     ] {
         let data = match fs::read(vault_dir.join(name)) {
             Ok(d) => d,
@@ -959,6 +1265,15 @@ fn restore_vault_from_zip(vault_dir: &Path, zip_path: &str, password: &str) -> R
         if let Ok(meta_bytes) = std::fs::read(tmp.join("meta").join(META_FILENAME)) {
             let _ = std::fs::write(vault_dir.join(META_FILENAME), &meta_bytes);
         }
+        // v2 envelopes: write back when the backup carries them, so a restored
+        // vault is immediately v2 (unlock without another migration, and the
+        // recovery code from the backup still works). v1 backups lack them —
+        // the restored vault migrates on first unlock.
+        for name in [DEK_FILENAME, RECOVERY_FILENAME] {
+            if let Ok(bytes) = std::fs::read(tmp.join("meta").join(name)) {
+                let _ = std::fs::write(vault_dir.join(name), &bytes);
+            }
+        }
 
         // Overwrite the current vault's data with the backup's contents; also
         // drop a stale meta/ subdir left behind by pre-fix restore runs.
@@ -1107,7 +1422,7 @@ mod tests {
         let password = "round-trip-pass";
 
         // init + one diary entry + one image asset
-        let (key, salt) = init_vault_at(&vault_dir, password, "pet?", "cat").unwrap();
+        let (key, salt, _recovery_code) = init_vault_at(&vault_dir, password, "pet?", "cat").unwrap();
         write_entry_atomic(&vault_dir, &key, &sample_entry("2026-10-02", "<p>你好 world</p>")).unwrap();
         fs::write(vault_dir.join(IMAGES_DIR).join("pic.png"), b"fake-png").unwrap();
 
@@ -1154,7 +1469,7 @@ mod tests {
         let vault_dir = base.join("vault");
         let password = "legacy-pass-123";
 
-        let (key, salt) = init_vault_at(&vault_dir, password, "q", "a").unwrap();
+        let (key, salt, _recovery_code) = init_vault_at(&vault_dir, password, "q", "a").unwrap();
         write_entry_atomic(&vault_dir, &key, &sample_entry("2026-10-01", "<p>legacy</p>")).unwrap();
 
         // Hand-build a pre-P0-12 style backup: entries only.
@@ -1193,7 +1508,7 @@ mod tests {
     fn tombstone_renames_vault_for_retention_window() {
         let base = temp_workspace("tombstone");
         let vault_dir = base.join("vault");
-        let (key, _salt) = init_vault_at(&vault_dir, "tombstone-pass", "q", "a").unwrap();
+        let (key, _salt, _recovery_code) = init_vault_at(&vault_dir, "tombstone-pass", "q", "a").unwrap();
         write_entry_atomic(&vault_dir, &key, &sample_entry("2026-10-02", "<p>x</p>")).unwrap();
 
         tombstone_vault_dir(&vault_dir).unwrap();
@@ -1225,5 +1540,200 @@ mod tests {
         assert_eq!(count_words("<p>&lt;tag&gt; x</p>"), 2);
         // empty content
         assert_eq!(count_words("<p></p>"), 0);
+    }
+
+    // ── v2 DEK envelopes + recovery code (2026-10-24) ────────────────────
+
+    /// A v2 vault writes both envelopes, and the returned recovery code opens
+    /// the SAME dek the password envelope holds.
+    #[test]
+    fn v2_envelopes_written_and_recovery_code_opens_dek() {
+        let base = temp_workspace("v2-envelopes");
+        let vault_dir = base.join("vault");
+        let (dek, _salt, code) = init_vault_at(&vault_dir, "v2-password-1", "pet?", "cat").unwrap();
+
+        assert!(vault_dir.join(DEK_FILENAME).exists(), "vault.dek missing");
+        assert!(vault_dir.join(RECOVERY_FILENAME).exists(), "vault.recovery missing");
+
+        let opened = open_recovery(&fs::read(vault_dir.join(RECOVERY_FILENAME)).unwrap(), &code).unwrap();
+        assert_eq!(&opened[..], &dek[..], "recovery code must open the same dek");
+
+        // A wrong code must not open anything.
+        let wrong = open_recovery(&fs::read(vault_dir.join(RECOVERY_FILENAME)).unwrap(), "WRONG-CODE1");
+        assert!(wrong.is_err(), "a wrong recovery code must fail");
+
+        // The password envelope holds the same dek.
+        let key = crypto::derive_key("v2-password-1", &{
+            let mut s = [0u8; crypto::SALT_LEN];
+            s.copy_from_slice(&fs::read(vault_dir.join(SALT_FILENAME)).unwrap());
+            s
+        });
+        let via_password = open_dek_envelope(&vault_dir, &key).unwrap();
+        assert_eq!(&via_password[..], &dek[..]);
+
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    /// Full recovery loop: forget the password → recover with the code → set a
+    /// new password → every entry survives, and the old code is burned.
+    #[test]
+    fn recover_vault_keeps_entries_and_burns_old_code() {
+        let base = temp_workspace("recover-loop");
+        let vault_dir = base.join("vault");
+        let (dek, _salt, code) = init_vault_at(&vault_dir, "old-password-1", "pet?", "cat").unwrap();
+        write_entry_atomic(&vault_dir, &dek, &sample_entry("2026-10-02", "<p>secret diary</p>")).unwrap();
+
+        // Recover with the code, brand-new password + hint.
+        let (dek2, new_salt, new_code) =
+            recover_vault_at(&vault_dir, &code, "brand-new-pass", "city?", "wuhan").unwrap();
+        assert_eq!(&dek2[..], &dek[..], "recovery must NOT rotate the dek");
+
+        // The old code is dead.
+        assert!(open_recovery(&fs::read(vault_dir.join(RECOVERY_FILENAME)).unwrap(), &code).is_err());
+        // The new code opens the same dek.
+        let via_new = open_recovery(&fs::read(vault_dir.join(RECOVERY_FILENAME)).unwrap(), &new_code).unwrap();
+        assert_eq!(&via_new[..], &dek[..]);
+
+        // The entry is readable under the NEW password's envelope (entries
+        // were never re-encrypted — the dek is unchanged).
+        let new_key = crypto::derive_key("brand-new-pass", &new_salt);
+        let verifier = fs::read(vault_dir.join(VERIFIER_FILENAME)).unwrap();
+        assert_eq!(crypto::decrypt(&new_key, &verifier).unwrap(), VERIFIER_PLAINTEXT);
+        let loaded = read_entry(&vault_dir, &dek2, "2026-10-02").unwrap();
+        assert_eq!(loaded.content, "<p>secret diary</p>");
+
+        // The hint was refreshed too.
+        let meta: VaultMeta =
+            serde_json::from_slice(&fs::read(vault_dir.join(META_FILENAME)).unwrap()).unwrap();
+        assert_eq!(meta.hint_question.as_deref(), Some("city?"));
+        assert_eq!(meta.hint_answer_hash.as_deref(), Some(crypto::hash_hint_answer("wuhan").as_str()));
+        assert_eq!(meta.version, VAULT_VERSION);
+
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    /// A wrong recovery code must be rejected WITHOUT touching the vault
+    /// (the password still unlocks afterwards).
+    #[test]
+    fn recover_with_wrong_code_rejected_and_vault_untouched() {
+        let base = temp_workspace("recover-wrong");
+        let vault_dir = base.join("vault");
+        let (_dek, salt, code) = init_vault_at(&vault_dir, "keep-password", "q?", "a").unwrap();
+        let before = fs::read(vault_dir.join(SALT_FILENAME)).unwrap();
+
+        let res = recover_vault_at(&vault_dir, "WRONG-CODE1", "whatever-99", "q?", "a");
+        assert!(res.is_err(), "wrong recovery code must be rejected");
+
+        // Salt/verifier untouched → the original password still works.
+        assert_eq!(fs::read(vault_dir.join(SALT_FILENAME)).unwrap(), before);
+        let key = crypto::derive_key("keep-password", &salt);
+        let verifier = fs::read(vault_dir.join(VERIFIER_FILENAME)).unwrap();
+        assert_eq!(crypto::decrypt(&key, &verifier).unwrap(), VERIFIER_PLAINTEXT);
+        // And the real code still opens the envelope.
+        assert!(open_recovery(&fs::read(vault_dir.join(RECOVERY_FILENAME)).unwrap(), &code).is_ok());
+
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    /// Hand-build a pre-v2 vault (salt + verifier + entry, NO envelopes) and
+    /// migrate it: both envelopes appear, the issued code opens the derived
+    /// key, and the entry stays readable (never re-encrypted).
+    #[test]
+    fn v1_vault_migrates_on_first_unlock_and_stays_readable() {
+        let base = temp_workspace("v1-migrate");
+        let vault_dir = base.join("vault");
+        fs::create_dir_all(vault_dir.join(ENTRIES_DIR)).unwrap();
+        fs::create_dir_all(vault_dir.join(IMAGES_DIR)).unwrap();
+        let salt = crypto::generate_salt();
+        fs::write(vault_dir.join(SALT_FILENAME), salt).unwrap();
+        let key = crypto::derive_key("legacy-password", &salt);
+        fs::write(
+            vault_dir.join(VERIFIER_FILENAME),
+            crypto::encrypt(&key, VERIFIER_PLAINTEXT).unwrap(),
+        )
+        .unwrap();
+        let meta = VaultMeta {
+            version: 1,
+            created_at: chrono::Utc::now().to_rfc3339(),
+            last_accessed: chrono::Utc::now().to_rfc3339(),
+            hint_question: Some("pet?".to_string()),
+            hint_answer_hash: Some(crypto::hash_hint_answer("cat")),
+        };
+        fs::write(vault_dir.join(META_FILENAME), serde_json::to_vec(&meta).unwrap()).unwrap();
+        // A v1 entry, encrypted with the password-derived key directly.
+        write_entry_atomic(&vault_dir, &key, &sample_entry("2026-10-01", "<p>old diary</p>")).unwrap();
+        assert!(!vault_dir.join(DEK_FILENAME).exists());
+
+        // The migration unlock_vault performs.
+        let code = migrate_v1_to_v2(&vault_dir, &key).unwrap();
+
+        assert!(vault_dir.join(DEK_FILENAME).exists());
+        assert!(vault_dir.join(RECOVERY_FILENAME).exists());
+        let opened = open_recovery(&fs::read(vault_dir.join(RECOVERY_FILENAME)).unwrap(), &code).unwrap();
+        assert_eq!(&opened[..], &key[..], "migrated dek must equal the old derived key");
+        // The pre-migration entry reads back with that same key.
+        let loaded = read_entry(&vault_dir, &opened, "2026-10-01").unwrap();
+        assert_eq!(loaded.content, "<p>old diary</p>");
+        // Meta version stamped.
+        let meta: VaultMeta =
+            serde_json::from_slice(&fs::read(vault_dir.join(META_FILENAME)).unwrap()).unwrap();
+        assert_eq!(meta.version, VAULT_VERSION);
+
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    /// Re-issuing the recovery code burns the old one; the dek is untouched.
+    #[test]
+    fn regenerate_recovery_code_burns_old_code_keeps_dek() {
+        let base = temp_workspace("regenerate");
+        let vault_dir = base.join("vault");
+        let (dek, _salt, old_code) = init_vault_at(&vault_dir, "regen-password", "q?", "a").unwrap();
+
+        let new_code = regenerate_recovery_code_at(&vault_dir, &dek).unwrap();
+        assert_ne!(new_code, old_code);
+
+        let blob = fs::read(vault_dir.join(RECOVERY_FILENAME)).unwrap();
+        assert!(open_recovery(&blob, &old_code).is_err(), "old code must be dead");
+        let opened = open_recovery(&blob, &new_code).unwrap();
+        assert_eq!(&opened[..], &dek[..], "dek must survive a re-issue untouched");
+
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    /// A v2 backup carries both envelopes, so a restore is immediately v2 and
+    /// the backup's own recovery code still works on the restored vault.
+    #[test]
+    fn export_restore_roundtrip_carries_v2_envelopes() {
+        let base = temp_workspace("roundtrip-v2");
+        let vault_dir = base.join("vault");
+        let zip_path = base.join("backup.zip");
+        let password = "round-trip-pass";
+
+        let (dek, _salt, code) = init_vault_at(&vault_dir, password, "pet?", "cat").unwrap();
+        write_entry_atomic(&vault_dir, &dek, &sample_entry("2026-10-02", "<p>你好 world</p>")).unwrap();
+
+        let count = export_vault_to_zip(&vault_dir, zip_path.to_str().unwrap()).unwrap();
+        assert_eq!(count, 1);
+
+        fs::remove_dir_all(&vault_dir).unwrap();
+        restore_vault_from_zip(&vault_dir, zip_path.to_str().unwrap(), password).unwrap();
+
+        // Envelopes came back with the backup.
+        assert!(vault_dir.join(DEK_FILENAME).exists(), "restored vault missing vault.dek");
+        assert!(vault_dir.join(RECOVERY_FILENAME).exists(), "restored vault missing vault.recovery");
+        // …and the backup's recovery code opens the restored dek.
+        let opened = open_recovery(&fs::read(vault_dir.join(RECOVERY_FILENAME)).unwrap(), &code).unwrap();
+        assert_eq!(&opened[..], &dek[..]);
+        // The entry reads back under the original password's envelope.
+        let salt = {
+            let mut s = [0u8; crypto::SALT_LEN];
+            s.copy_from_slice(&fs::read(vault_dir.join(SALT_FILENAME)).unwrap());
+            s
+        };
+        let key = crypto::derive_key(password, &salt);
+        let via_password = open_dek_envelope(&vault_dir, &key).unwrap();
+        assert_eq!(read_entry(&vault_dir, &via_password, "2026-10-02").unwrap().content, "<p>你好 world</p>");
+
+        fs::remove_dir_all(&base).unwrap();
     }
 }

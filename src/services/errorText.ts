@@ -26,6 +26,12 @@ const EXACT: Record<string, string> = {
   'Salt file corrupted': 'vault.saltCorrupted',
   'Entry not found': 'vault.entryNotFound',
   'No entries to export': 'vault.nothingToExport',
+  // v2 信封加密（2026-10-24）
+  'Incorrect recovery code': 'vault.incorrectRecovery',
+  'Recovery envelope is corrupted': 'vault.recoveryCorrupted',
+  'Recovery data is corrupted': 'vault.recoveryCorrupted',
+  'This vault has no recovery code yet. Unlock it once with your password — the first unlock upgrades the vault and issues a recovery code.': 'vault.recoveryNotSetUp',
+  'Vault key envelope is damaged — restore from a backup (the password is correct).': 'vault.dekEnvelopeDamaged',
 };
 
 /** 归一化匹配：忽略大小写、标点与多余空白。 */

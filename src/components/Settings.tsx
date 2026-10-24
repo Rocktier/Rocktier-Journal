@@ -4,18 +4,30 @@ import { getVersion } from "@tauri-apps/api/app";
 import { save } from "@tauri-apps/plugin-dialog";
 import { useTheme } from "../hooks/useTheme";
 import { useTranslation } from "../hooks/useTranslation";
+import { useAuth } from "../hooks/AuthContext";
 import { LOCALES, type Locale } from "../i18n";
 
 export default function Settings() {
   const { theme, toggleTheme } = useTheme();
   const { t, changeLocale, locale } = useTranslation();
+  const { regenerateRecoveryCode } = useAuth();
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
+  const [regenMsg, setRegenMsg] = useState<string | null>(null);
   const [version, setVersion] = useState<string>("");
 
   useEffect(() => {
     getVersion().then(setVersion).catch(() => {});
   }, []);
+
+  const handleRegenerate = async () => {
+    if (!window.confirm(t("settings.recovery.regenConfirm"))) return;
+    setRegenMsg(null);
+    // 新码进 AuthContext.state.recoveryCode → App 层的保存卡自动弹出展示
+    const code = await regenerateRecoveryCode();
+    setRegenMsg(code ? t("recovery.regenerated") : t("settings.export.failed", { e: "—" }));
+    setTimeout(() => setRegenMsg(null), 5000);
+  };
 
   const handleExport = async () => {
     setExporting(true);
@@ -92,6 +104,19 @@ export default function Settings() {
             {exporting ? t("settings.export.doing") : t("settings.export")}
           </button>
           {exportMsg && <span className="settings-export-msg">{exportMsg}</span>}
+        </div>
+      </div>
+
+      <div className="settings-item">
+        <label>{t("settings.recovery")}</label>
+        <div className="settings-export">
+          {/* 能进设置页 = 保险箱已解锁 = 信封已在（v2 或首次解锁时迁移），
+              恢复码必然存在；这里只提供「重新生成」（旧码作废、新码展示一次）。 */}
+          <span className="settings-version">{t("settings.recovery.ready")}</span>
+          <button onClick={handleRegenerate} className="theme-toggle">
+            {t("settings.recovery.regen")}
+          </button>
+          {regenMsg && <span className="settings-export-msg">{regenMsg}</span>}
         </div>
       </div>
 
