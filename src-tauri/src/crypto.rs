@@ -158,7 +158,7 @@ mod tests {
         assert_eq!(groups.len(), 5);
         for g in &groups {
             assert_eq!(g.len(), 5);
-            assert!(g.chars().all(|c| c.is_ascii_digit() || ('A'..='Z').contains(&c)));
+            assert!(g.chars().all(|c| c.is_ascii_digit() || c.is_ascii_uppercase()));
             assert!(!g.contains('I') && !g.contains('L') && !g.contains('O') && !g.contains('U'));
         }
         // Two codes must differ (125-bit space).

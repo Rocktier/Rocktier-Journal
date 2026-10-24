@@ -41,6 +41,10 @@ const VERIFIER_PLAINTEXT: &[u8] = b"ROCKTIER_VAULT_OK";
 /// is ever re-encrypted.
 const VAULT_VERSION: u32 = 2;
 
+/// What vault creation / password reset return: the DEK, the salt, and the
+/// one-time plaintext recovery code (see `seal_recovery`).
+type VaultInitOutcome = (Zeroizing<[u8; crypto::KEY_LEN]>, [u8; crypto::SALT_LEN], String);
+
 /// Legacy identifier (pre-0.2.x) whose app-data dir may hold an existing vault.
 const LEGACY_IDENTIFIER_DIR: &str = "com.rocktier.journal";
 
@@ -294,7 +298,7 @@ fn init_vault_at(
     password: &str,
     hint_question: &str,
     hint_answer: &str,
-) -> Result<(Zeroizing<[u8; crypto::KEY_LEN]>, [u8; crypto::SALT_LEN], String), String> {
+) -> Result<VaultInitOutcome, String> {
     if password.len() < 8 {
         return Err("Password must be at least 8 characters".to_string());
     }
@@ -574,7 +578,7 @@ fn recover_vault_at(
     new_password: &str,
     hint_question: &str,
     hint_answer: &str,
-) -> Result<(Zeroizing<[u8; crypto::KEY_LEN]>, [u8; crypto::SALT_LEN], String), String> {
+) -> Result<VaultInitOutcome, String> {
     if !vault_dir.exists() {
         return Err("Vault does not exist. Please create one first.".to_string());
     }
