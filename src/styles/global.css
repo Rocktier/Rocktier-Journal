@@ -357,6 +357,13 @@ body {
   padding: 16px 0;
 }
 
+/* 深色档侧栏分隔增强：#000 主背景与 #0a0a0a 侧栏的亮度差肉眼几乎为 0，
+   0.08 描边也糊在一起 —— 侧栏与正文失去分隔（2026-10-25 审计 D-78）。
+   深色把分隔提到 --border-hover 一档；浅色对比已足够，不动。 */
+[data-theme="dark"] .sidebar {
+  border-right-color: var(--border-hover);
+}
+
 .sidebar-header {
   display: flex;
   align-items: center;

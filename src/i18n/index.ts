@@ -208,6 +208,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     "settings.recovery.ready": "Set up",
     "settings.recovery.regen": "Re-issue recovery code",
     "settings.recovery.regenConfirm": "Re-issuing invalidates the previous code. The new one is shown once. Continue?",
+    "settings.recovery.regenGo": "Confirm — invalidate old code",
   },
   "zh-CN": {
     "app.name": "Rocktier 日记",
@@ -405,6 +406,7 @@ const STRINGS: Record<Locale, Record<string, string>> = {
     "settings.recovery.ready": "已启用",
     "settings.recovery.regen": "重新生成恢复码",
     "settings.recovery.regenConfirm": "重新生成后，旧恢复码立即作废，新码只显示一次。继续？",
+    "settings.recovery.regenGo": "确认作废旧码",
   },
 };
 

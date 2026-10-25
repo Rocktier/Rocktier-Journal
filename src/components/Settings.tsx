@@ -14,6 +14,10 @@ export default function Settings() {
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const [regenMsg, setRegenMsg] = useState<string | null>(null);
+  // 原生 window.confirm 是系统级白面板，不吃深色主题（2026-10-25 审计 D-78「恢复密钥弹窗白色面板」）。
+  // 改为应用内两步确认：第一次点亮确认态（按钮文案换为「确认作废旧码」，悬停见后果），
+  // 再点一次才真正作废旧码；点「取消」退出确认态。
+  const [regenConfirming, setRegenConfirming] = useState(false);
   const [version, setVersion] = useState<string>("");
 
   useEffect(() => {
@@ -21,7 +25,11 @@ export default function Settings() {
   }, []);
 
   const handleRegenerate = async () => {
-    if (!window.confirm(t("settings.recovery.regenConfirm"))) return;
+    if (!regenConfirming) {
+      setRegenConfirming(true);
+      return;
+    }
+    setRegenConfirming(false);
     setRegenMsg(null);
     // 新码进 AuthContext.state.recoveryCode → App 层的保存卡自动弹出展示
     const code = await regenerateRecoveryCode();
@@ -113,9 +121,18 @@ export default function Settings() {
           {/* 能进设置页 = 保险箱已解锁 = 信封已在（v2 或首次解锁时迁移），
               恢复码必然存在；这里只提供「重新生成」（旧码作废、新码展示一次）。 */}
           <span className="settings-version">{t("settings.recovery.ready")}</span>
-          <button onClick={handleRegenerate} className="theme-toggle">
-            {t("settings.recovery.regen")}
+          <button
+            onClick={handleRegenerate}
+            className="theme-toggle"
+            title={regenConfirming ? t("settings.recovery.regenConfirm") : undefined}
+          >
+            {regenConfirming ? t("settings.recovery.regenGo") : t("settings.recovery.regen")}
           </button>
+          {regenConfirming && (
+            <button onClick={() => setRegenConfirming(false)} className="theme-toggle">
+              {t("common.cancel")}
+            </button>
+          )}
           {regenMsg && <span className="settings-export-msg">{regenMsg}</span>}
         </div>
       </div>
