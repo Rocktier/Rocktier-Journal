@@ -2,6 +2,10 @@
 
 Private encrypted diary. Part of the Rocktier family of tools.
 
+> **Maintenance mode (since 2026-10-29).** Rocktier Journal receives security and
+> data-integrity fixes only; no new features. Existing vaults and backups keep
+> working, and the app stays available for download.
+
 ## Build
 
 ```bash
