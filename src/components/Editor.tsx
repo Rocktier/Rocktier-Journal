@@ -45,6 +45,9 @@ export default function Editor({ date, onDone }: Props) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // dirty 的同步镜像：卸载回调只能读到 ref（闭包里的 dirty 会是旧值）。
   const dirtyRef = useRef(false);
+  // 用户编辑序号：保存返回时用它判断「落盘的是不是最新内容」，
+  // 避免保存期间的新输入被一次旧的成功回调盖成「已保存」。
+  const editSeqRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,7 +76,9 @@ export default function Editor({ date, onDone }: Props) {
         }
         setDirty(false);
         dirtyRef.current = false;
-        setSaveStatus("saved");
+        editSeqRef.current = 0;
+        // 只有从磁盘读到的记录才算「已保存」；空白的新文档没有落盘过任何东西。
+        setSaveStatus(entry ? "saved" : "idle");
         setLoading(false);
       })
       .catch((e: unknown) => {
@@ -91,16 +96,26 @@ export default function Editor({ date, onDone }: Props) {
 
   // Tiptap emits HTML — wrap the (possibly markdown) string so it renders
   // correctly when re-edited in the rich-text editor.
-  const internalSetContent = useCallback((raw: string) => {
-    setContent(toStyledHtml(raw));
+  // 一切「用户编辑」入口统一走这里：发生输入就立刻离开 saved 态。
+  // 程序化回填（加载文档、日期切换、外部同步）不走 onChange ——
+  // JournalEditor 用 emitUpdate:false 写回，所以这里只会收到真实编辑（含用户撤销/重做）。
+  const markDirty = useCallback(() => {
+    editSeqRef.current += 1;
     setDirty(true);
     dirtyRef.current = true;
-    setError(null);
+    setSaveStatus("unsaved");
   }, []);
+
+  const internalSetContent = useCallback((raw: string) => {
+    setContent(toStyledHtml(raw));
+    setError(null);
+    markDirty();
+  }, [markDirty]);
 
   const handleSave = useCallback(async (): Promise<boolean> => {
     setError(null);
     setSaveStatus("saving");
+    const seq = editSeqRef.current;
     try {
       await invoke("save_diary", {
         date,
@@ -112,12 +127,14 @@ export default function Editor({ date, onDone }: Props) {
         customMood: mood === "custom" ? customMood.trim() || null : null,
         images: [],
       });
-      setSaveStatus("saved");
-      setDirty(false);
-      dirtyRef.current = false;
+      // 落盘期间又有新编辑 → 这次成功只代表旧内容，状态仍应是「未保存」。
+      const stillLatest = seq === editSeqRef.current;
+      setSaveStatus(stillLatest ? "saved" : "unsaved");
+      setDirty(!stillLatest);
+      dirtyRef.current = !stillLatest;
       // 首次自动保存后这一天就有记录了 —— 删除入口从这里开始显示。
       setExists(true);
-      return true;
+      return stillLatest;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(msg);
@@ -180,8 +197,8 @@ export default function Editor({ date, onDone }: Props) {
   );
 
   // Auto-save: debounced 1500ms after last dirty change.
-  // During typing, keep the previous status ("saved") — showing "unsaved"
-  // on every keystroke is distracting.
+  // 状态由 markDirty 负责：编辑一发生就显示「未保存」，防抖窗口内不再谎报 saved；
+  // 定时器真正调用 handleSave 时才切到「保存中」，落盘成功才回到「已保存」。
   useEffect(() => {
     if (!dirty) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -237,8 +254,7 @@ export default function Editor({ date, onDone }: Props) {
           selected={mood}
           onSelect={(m) => {
             setMood(m);
-            setDirty(true);
-            dirtyRef.current = true;
+            markDirty();
           }}
         />
         {/* 「完成」= 结束本次记录（落盘 + 退出编辑器）。保存状态由页脚的
@@ -263,8 +279,7 @@ export default function Editor({ date, onDone }: Props) {
             value={customMood}
             onChange={(e) => {
               setCustomMood(e.target.value);
-              setDirty(true);
-              dirtyRef.current = true;
+              markDirty();
             }}
           />
         </div>
@@ -278,8 +293,7 @@ export default function Editor({ date, onDone }: Props) {
           value={title || ""}
           onChange={(e) => {
             setTitle(e.target.value || undefined);
-            setDirty(true);
-            dirtyRef.current = true;
+            markDirty();
           }}
         />
       </div>
