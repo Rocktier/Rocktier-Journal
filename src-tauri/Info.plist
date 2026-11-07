@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  App Store 提交所需的 Info.plist 增量（Tauri 会把它合并进自动生成的那份）。
+  依据与逐条理由见 docs/rocktier/macos-hig-checklist.md。
+-->
+<plist version="1.0">
+<dict>
+	<!--
+	  出口合规：Journal 与家族其它 7 款**不同**，这里必须是 true。
+	  事实依据：日记正文用 aes-gcm 在应用层自行加密落盘（配套 pbkdf2 派生、
+	  sha2 摘要），属自研加密而非「只用系统加密」，不适用豁免。
+	  影响：App Store Connect 仍会要求出口合规文稿；上架 MAS 前需完成
+	  BIS 自分类报告（self-classification）并按要求提交。
+	  禁止为了省事把它改成 false —— 那是虚假声明。
+	-->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<true/>
+
+	<!-- App Store 必需项。 -->
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.lifestyle</string>
+</dict>
+</plist>
