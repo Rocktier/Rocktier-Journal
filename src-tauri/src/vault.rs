@@ -1640,18 +1640,62 @@ mod tests {
         assert_eq!(loaded.content, "<p>secret diary</p>");
 
         // The hint was refreshed too.
+        //
+        // 不能再和 `hash_hint_answer("wuhan")` 的新算值比字节：加盐后同一句答案
+        // 每次都不一样（见 crypto::hash_hint_answer）。这里验的是语义 ——
+        // 新答案能过、旧答案过不了、且已经是新格式（不需要再升级）。
         let meta: VaultMeta =
             serde_json::from_slice(&fs::read(vault_dir.join(META_FILENAME)).unwrap()).unwrap();
+        let stored = meta.hint_answer_hash.as_deref().expect("hint hash must be present");
         assert_eq!(meta.hint_question.as_deref(), Some("city?"));
-        assert_eq!(meta.hint_answer_hash.as_deref(), Some(crypto::hash_hint_answer("wuhan").as_str()));
+        assert!(crypto::verify_hint_answer_hash("wuhan", stored));
+        assert!(!crypto::verify_hint_answer_hash("cat", stored));
+        assert!(!crypto::hint_hash_needs_upgrade(stored), "new hint must be stored in the salted scheme");
         assert_eq!(meta.version, VAULT_VERSION);
 
         fs::remove_dir_all(&base).unwrap();
     }
 
-    /// A wrong recovery code must be rejected WITHOUT touching the vault
-    /// (the password still unlocks afterwards).
+    /// 存量库的提示答案是无盐 SHA256。答对时必须自动升级成加盐格式 ——
+    /// 否则老用户永远留着可枚举的哈希；答错时一个字节都不许动。
     #[test]
+    fn legacy_hint_hash_is_upgraded_on_successful_delete_gate() {
+        use sha2::{Digest, Sha256};
+
+        let base = temp_workspace("hint-upgrade");
+        let vault_dir = base.join("vault");
+        init_vault_at(&vault_dir, "some-password-1", "pet?", "cat").unwrap();
+
+        // 把 meta 改回旧格式，模拟 0.2.16 及更早建的库。
+        let meta_path = vault_dir.join(META_FILENAME);
+        let mut meta: VaultMeta =
+            serde_json::from_slice(&fs::read(&meta_path).unwrap()).unwrap();
+        let legacy: String = Sha256::digest(b"cat")
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect();
+        meta.hint_answer_hash = Some(legacy.clone());
+        fs::write(&meta_path, serde_json::to_vec_pretty(&meta).unwrap()).unwrap();
+
+        // 答错：门不开，也不该动存储值。
+        assert!(verify_hint_answer(&vault_dir, Some("dog")).is_err());
+        let after_wrong: VaultMeta =
+            serde_json::from_slice(&fs::read(&meta_path).unwrap()).unwrap();
+        assert_eq!(after_wrong.hint_answer_hash.as_deref(), Some(legacy.as_str()));
+
+        // 答对：门开，并且就地升级成加盐格式。
+        verify_hint_answer(&vault_dir, Some("cat")).unwrap();
+        let after_ok: VaultMeta =
+            serde_json::from_slice(&fs::read(&meta_path).unwrap()).unwrap();
+        let stored = after_ok.hint_answer_hash.as_deref().unwrap();
+        assert!(!crypto::hint_hash_needs_upgrade(stored));
+        assert!(crypto::verify_hint_answer_hash("cat", stored));
+
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    /// A wrong recovery code must be rejected WITHOUT touching the vault
+    /// (the password still unlocks afterwards).    #[test]
     fn recover_with_wrong_code_rejected_and_vault_untouched() {
         let base = temp_workspace("recover-wrong");
         let vault_dir = base.join("vault");
