@@ -1695,7 +1695,8 @@ mod tests {
     }
 
     /// A wrong recovery code must be rejected WITHOUT touching the vault
-    /// (the password still unlocks afterwards).    #[test]
+    /// (the password still unlocks afterwards).
+    #[test]
     fn recover_with_wrong_code_rejected_and_vault_untouched() {
         let base = temp_workspace("recover-wrong");
         let vault_dir = base.join("vault");
