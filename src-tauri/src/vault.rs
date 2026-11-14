@@ -1097,17 +1097,42 @@ fn verify_hint_answer(vault_dir: &Path, provided: Option<&str>) -> Result<(), St
     }
     let bytes = fs::read(&meta_path)
         .map_err(|e| format!("Failed to read meta: {}", e))?;
-    let meta: VaultMeta = serde_json::from_slice(&bytes)
+    let mut meta: VaultMeta = serde_json::from_slice(&bytes)
         .map_err(|e| format!("Failed to parse meta: {}", e))?;
 
-    match (&meta.hint_answer_hash, provided) {
-        (Some(stored_hash), Some(answer)) if *stored_hash == crypto::hash_hint_answer(answer) => {
+    // 先克隆出存量哈希，让后面的 match 不再借用 meta —— 答对时要就地升级。
+    let stored = meta.hint_answer_hash.clone();
+    match (stored.as_deref(), provided) {
+        (Some(stored_hash), Some(answer))
+            if crypto::verify_hint_answer_hash(answer, stored_hash) =>
+        {
+            // 旧库的提示答案是无盐 SHA256（可秒级枚举），答对时顺手升级成加盐
+            // PBKDF2。写失败不回滚门禁结果：答案已经验过，旧值也仍能读。
+            if crypto::hint_hash_needs_upgrade(stored_hash) {
+                meta.hint_answer_hash = Some(crypto::hash_hint_answer(answer));
+                if let Err(e) = write_meta(&meta_path, &meta) {
+                    eprintln!("hint answer hash upgrade failed (non-fatal): {e}");
+                }
+            }
             Ok(())
         }
         (Some(_), Some(_)) => Err("Incorrect hint answer".to_string()),
         (Some(_), None) => Err("Hint answer required to delete this vault".to_string()),
         _ => Ok(()), /* no hint set — allow delete */
     }
+}
+
+/// 原子性够用的 meta 写入：先写临时文件再 rename，避免升级途中崩溃留下半个 JSON
+/// （半个 meta 会让库打不开 —— 密码对了也没用，因为没有 salt 路径可走）。
+fn write_meta(meta_path: &Path, meta: &VaultMeta) -> Result<(), String> {
+    let json = serde_json::to_vec_pretty(meta)
+        .map_err(|e| format!("Failed to serialize meta: {}", e))?;
+    let tmp = meta_path.with_extension("meta.tmp");
+    fs::write(&tmp, &json).map_err(|e| format!("Failed to write meta: {}", e))?;
+    fs::rename(&tmp, meta_path).map_err(|e| {
+        let _ = fs::remove_file(&tmp);
+        format!("Failed to replace meta: {}", e)
+    })
 }
 
 /// Instead of `fs::remove_dir_all`, rename the vault to a tombstone sibling
