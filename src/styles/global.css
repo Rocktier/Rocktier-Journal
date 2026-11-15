@@ -428,20 +428,15 @@ body {
 }
 
 .sidebar-item.active {
-  background: var(--bg-card);
-  color: var(--accent);
+  /* 选定框（Lenso 设计稿 .outline-item.on）：中性低强度底 + 500 字重的安静方框；
+     不再用 accent 文字与行尾红点 —— 选中是状态，不是强调/警示。 */
+  background: var(--accent-muted);
+  color: var(--text-primary);
+  font-weight: 500;
+  border-radius: 8px;
 }
 
-/* 选中条目行尾实心红点（7E Phase 1 红点语言试点） */
-.sidebar-item.active::after {
-  content: "";
-  flex-shrink: 0;
-  margin-left: auto;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--red);
-}
+/* 选中态改用 Lenso 选定框（中性软底 + 500 字重），行尾红点随旧方案一并退役 */
 
 /* 图标槽位：inline <span> 上的 width / text-align 是无效声明（inline 盒不吃
    width，居中靠字形自身度量）。✏ ▦ ≣ ⌕ ⚙ ☀ ☾ 各自 ascent/descent 差别很大，
