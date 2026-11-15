@@ -5,7 +5,6 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { useTheme } from "../hooks/useTheme";
 import { useTranslation } from "../hooks/useTranslation";
 import { useAuth } from "../hooks/AuthContext";
-import { LOCALES, type Locale } from "../i18n";
 
 export default function Settings() {
   const { theme, toggleTheme } = useTheme();
@@ -86,19 +85,21 @@ export default function Settings() {
 
       <div className="settings-item">
         <label>{t("settings.language")}</label>
-        {/* 家族标准 8 门语言。原为「切换为中文」单按钮 —— 6 门接入后没法用。
-            原生 select：8 个选项不需要搜索，跨平台行为一致，
-            键盘与读屏器支持免费获得。选项显示 endonym（语言自称）。 */}
-        <select
-          value={locale}
-          onChange={(e) => changeLocale(e.target.value as Locale)}
-          className="theme-toggle"
+        {/* 语言切换收成 A+地球图标按钮（2026-11-15 用户令）：en/zh 对切。 */}
+        <button
+          className="icon-btn"
+          onClick={() => changeLocale(locale === "en-US" ? "zh-CN" : "en-US")}
           aria-label={t("settings.language")}
+          title={t("settings.language")}
         >
-          {LOCALES.map((l) => (
-            <option key={l.code} value={l.code}>{l.endonym}</option>
-          ))}
-        </select>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 16 9 5l5 11" />
+            <path d="M6 12h6" />
+            <circle cx="16.5" cy="16.5" r="4.5" />
+            <ellipse cx="16.5" cy="16.5" rx="2" ry="4.5" />
+            <path d="M12.2 16.5h8.6" />
+          </svg>
+        </button>
       </div>
 
       <div className="settings-item">
