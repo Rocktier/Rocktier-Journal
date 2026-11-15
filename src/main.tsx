@@ -4,6 +4,7 @@ import App from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { syncHtmlLang } from "./i18n";
 import "./styles/tokens.css";
+import "./styles/glass.css";
 import "./styles/global.css";
 
 // 启动时同步 <html lang>：屏幕阅读器要用对应语言的语音引擎
