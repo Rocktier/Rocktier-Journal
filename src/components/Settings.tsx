@@ -93,11 +93,9 @@ export default function Settings() {
           title={t("settings.language")}
         >
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M4 16 9 5l5 11" />
-            <path d="M6 12h6" />
-            <circle cx="16.5" cy="16.5" r="4.5" />
-            <ellipse cx="16.5" cy="16.5" rx="2" ry="4.5" />
-            <path d="M12.2 16.5h8.6" />
+            <circle cx="12" cy="12" r="9" />
+            <ellipse cx="12" cy="12" rx="3.8" ry="9" />
+            <path d="M3 12h18" />
           </svg>
         </button>
       </div>
