@@ -73,18 +73,14 @@ export default function Settings() {
         <label>{t("settings.theme")}</label>
         {/* 设置面板里的这一行是「带标签的设置项」，不是图标按钮：
             家族统一的 28×28 .icon-btn 在侧栏底部（Sidebar.tsx）。
-            两处共用 useTheme 的同一个三态循环。 */}
+            两处共用 useTheme 的同一个两态切换（2026-11-15 取消「跟随系统」）。 */}
         <button
           onClick={toggleTheme}
           className="theme-toggle"
           data-mode={theme}
-          title={theme === "light" ? t("settings.theme.dark") : theme === "dark" ? t("settings.theme.light") : t("sidebar.theme.auto")}
+          title={theme === "light" ? t("settings.theme.dark") : t("settings.theme.light")}
         >
-          {theme === "light"
-            ? t("sidebar.theme.light")
-            : theme === "dark"
-              ? t("sidebar.theme.dark")
-              : t("sidebar.theme.auto")}
+          {theme === "light" ? t("sidebar.theme.light") : t("sidebar.theme.dark")}
         </button>
       </div>
 

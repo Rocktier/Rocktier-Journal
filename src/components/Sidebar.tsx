@@ -57,11 +57,7 @@ export default function Sidebar({ currentView, onViewChange, onLock }: Props) {
   const { t } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const themeLabel =
-    theme === "light"
-      ? t("sidebar.theme.light")
-      : theme === "dark"
-        ? t("sidebar.theme.dark")
-        : t("sidebar.theme.auto");
+    theme === "light" ? t("sidebar.theme.light") : t("sidebar.theme.dark");
 
   const navItems = [
     { id: "today", label: t("sidebar.today"), icon: "today" },
@@ -97,7 +93,8 @@ export default function Sidebar({ currentView, onViewChange, onLock }: Props) {
       <div className="sidebar-bottom">
         {/* 家族唯一主题按钮：.icon-btn（28×28 + 40×40 命中区）。
             此前是整行带文字的 sidebar 按钮，跨产品认不出是同一个控件。
-            三态 auto → light → dark，data-mode 驱动角标，title/aria-label 说明当前档。 */}
+            两态 light ⇄ dark（2026-11-15 取消「跟随系统」），图标只做太阳 / 月亮，
+            data-mode 驱动角标，title/aria-label 说明当前档。 */}
         <button
           className="icon-btn"
           data-mode={theme}
@@ -105,12 +102,7 @@ export default function Sidebar({ currentView, onViewChange, onLock }: Props) {
           title={`${t("settings.theme")} \u00b7 ${themeLabel}`}
           aria-label={`${t("settings.theme")}: ${themeLabel}`}
         >
-          {theme === "auto" ? (
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="2.5" y="4" width="19" height="13" rx="2" />
-              <path d="M8 20.5h8M12 17v3.5" />
-            </svg>
-          ) : theme === "dark" ? (
+          {theme === "dark" ? (
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="4" />
               <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
