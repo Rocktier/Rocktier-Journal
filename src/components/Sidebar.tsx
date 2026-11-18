@@ -100,8 +100,8 @@ export default function Sidebar({ currentView, onViewChange, onLock }: Props) {
           className="icon-btn"
           data-mode={theme}
           onClick={toggleTheme}
-          title={`${t("settings.theme")} \u00b7 ${themeLabel}`}
-          aria-label={`${t("settings.theme")}: ${themeLabel}`}
+          title={`${t("settings.themeLabel")} \u00b7 ${themeLabel}`}
+          aria-label={`${t("settings.themeLabel")}: ${themeLabel}`}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="4" />

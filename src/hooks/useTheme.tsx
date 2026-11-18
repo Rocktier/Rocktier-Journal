@@ -19,7 +19,10 @@ interface ThemeCtx {
 
 const ThemeContext = createContext<ThemeCtx | null>(null);
 
-const STORAGE_KEY = "rocktier.journal.theme";
+/* 2026-11-18 起与 PDF 仓同构：键改 rocktier.theme（家族统一键）；
+   旧键 rocktier.journal.theme 仅作读取回落，一次迁移后不再使用。 */
+const STORAGE_KEY = "rocktier.theme";
+const STORAGE_KEY_LEGACY = "rocktier.journal.theme";
 
 function systemTheme(): Resolved {
   return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
@@ -27,7 +30,8 @@ function systemTheme(): Resolved {
 
 function readMode(): Theme {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved =
+      localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(STORAGE_KEY_LEGACY);
     if (saved === "light" || saved === "dark") return saved;
     if (saved === "auto") {
       // 旧「跟随系统」用户：按读取当时的系统值一次性落定并持久化，

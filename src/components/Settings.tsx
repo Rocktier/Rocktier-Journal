@@ -69,7 +69,7 @@ export default function Settings() {
       <h2>{t("sidebar.settings")}</h2>
 
       <div className="settings-item">
-        <label>{t("settings.theme")}</label>
+        <label>{t("settings.themeLabel")}</label>
         {/* 设置面板里的这一行是「带标签的设置项」，不是图标按钮：
             家族统一的 28×28 .icon-btn 在侧栏底部（Sidebar.tsx）。
             两处共用 useTheme 的同一个两态切换（2026-11-15 取消「跟随系统」）。 */}
@@ -77,7 +77,7 @@ export default function Settings() {
           onClick={toggleTheme}
           className="theme-toggle"
           data-mode={theme}
-          title={theme === "light" ? t("settings.theme.dark") : t("settings.theme.light")}
+          title={theme === "light" ? t("settings.themeDark") : t("settings.themeLight")}
         >
           {theme === "light" ? t("sidebar.theme.light") : t("sidebar.theme.dark")}
         </button>
@@ -104,14 +104,14 @@ export default function Settings() {
         <label>{t("settings.backup")}</label>
         <div className="settings-export">
           <button onClick={handleExport} disabled={exporting} className="theme-toggle">
-            {exporting ? t("settings.export.doing") : t("settings.export")}
+            {exporting ? t("settings.export.doing") : t("settings.exportBtn")}
           </button>
           {exportMsg && <span className="settings-export-msg">{exportMsg}</span>}
         </div>
       </div>
 
       <div className="settings-item">
-        <label>{t("settings.recovery")}</label>
+        <label>{t("settings.recoveryLabel")}</label>
         <div className="settings-export">
           {/* 能进设置页 = 保险箱已解锁 = 信封已在（v2 或首次解锁时迁移），
               恢复码必然存在；这里只提供「重新生成」（旧码作废、新码展示一次）。 */}

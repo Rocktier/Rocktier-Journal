@@ -12,7 +12,7 @@
       // 否则浅色偏好用户会看到一帧深色。
       (function () {
         try {
-          var saved = localStorage.getItem("rocktier.journal.theme");
+          var saved = localStorage.getItem("rocktier.theme") || localStorage.getItem("rocktier.journal.theme");
           var theme;
           if (saved === "light" || saved === "dark") {
             theme = saved;
@@ -22,7 +22,7 @@
             theme = window.matchMedia("(prefers-color-scheme: light)").matches
               ? "light"
               : "dark";
-            try { localStorage.setItem("rocktier.journal.theme", theme); } catch (e2) {}
+            try { localStorage.setItem("rocktier.theme", theme); } catch (e2) {}
           }
           document.documentElement.setAttribute("data-theme", theme);
         } catch (e) {
