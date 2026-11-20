@@ -135,6 +135,8 @@ export function LicenseDialog({ info, onRefresh, onClose, revoked = false }: Lic
                   type="text"
                   value={code}
                   spellCheck={false}
+                  autoCorrect="off"
+                  autoCapitalize="off"
                   autoComplete="off"
                   placeholder={t("license.codePlaceholder")}
                   onChange={(e) => setCode(e.target.value)}

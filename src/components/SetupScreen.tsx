@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useAuth } from "../hooks/AuthContext";
 import { useTranslation } from "../hooks/useTranslation";
+import { NO_AUTOCORRECT } from "./inputAttrs";
 
 /**
  * First-time vault setup: collect password + hint Q&A, then create vault.
@@ -76,6 +77,7 @@ export default function SetupScreen() {
             <input
               ref={passwordRef}
               type={showPassword ? "text" : "password"}
+              {...NO_AUTOCORRECT}
               placeholder={t("lock.password")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -92,6 +94,7 @@ export default function SetupScreen() {
 
           <input
             type={showPassword ? "text" : "password"}
+            {...NO_AUTOCORRECT}
             placeholder={t("lock.confirm")}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
@@ -141,6 +144,7 @@ export default function SetupScreen() {
             </button>
             <input
               type={showPassword ? "text" : "password"}
+              {...NO_AUTOCORRECT}
               placeholder={t("setup.restorePassword")}
               value={restorePassword}
               onChange={(e) => setRestorePassword(e.target.value)}

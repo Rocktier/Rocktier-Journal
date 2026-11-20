@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { t, tp } from "../i18n";
 import { useTranslation } from "../hooks/useTranslation";
+import { NO_AUTOCORRECT } from "./inputAttrs";
 
 interface DiarySummary {
   date: string;
@@ -74,6 +75,7 @@ export default function SearchView({ onSelect }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("search.titlePh")}
+          {...NO_AUTOCORRECT}
         />
         {loading && <span className="search-spinner" aria-hidden="true">⌛</span>}
       </div>

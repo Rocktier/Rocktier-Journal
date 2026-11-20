@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../hooks/AuthContext";
 import { useTranslation } from "../hooks/useTranslation";
 import JnLogo from "./JnLogo";
+import { NO_AUTOCORRECT } from "./inputAttrs";
 
 type Mode = "unlock" | "forgot" | "recover" | "reset" | "noHint" | "forceCreate";
 
@@ -230,6 +231,7 @@ export default function LockScreen() {
                 <input
                   ref={passwordRef}
                   type={showPassword ? "text" : "password"}
+                  {...NO_AUTOCORRECT}
                   placeholder={t("lock.password")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -305,6 +307,7 @@ export default function LockScreen() {
               <div className="lock-input-wrap">
                 <input
                   type={showPassword ? "text" : "password"}
+                  {...NO_AUTOCORRECT}
                   placeholder={t("lock.newPassword")}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
@@ -316,6 +319,7 @@ export default function LockScreen() {
               </div>
               <input
                 type={showPassword ? "text" : "password"}
+                {...NO_AUTOCORRECT}
                 placeholder={t("lock.confirmNew")}
                 value={newPasswordConfirm}
                 onChange={(e) => setNewPasswordConfirm(e.target.value)}
@@ -409,6 +413,7 @@ export default function LockScreen() {
                 <input
                   ref={passwordRef}
                   type={showPassword ? "text" : "password"}
+                  {...NO_AUTOCORRECT}
                   placeholder={t("lock.newPassword")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -421,6 +426,7 @@ export default function LockScreen() {
               </div>
               <input
                 type={showPassword ? "text" : "password"}
+                {...NO_AUTOCORRECT}
                 placeholder={t("lock.confirmNew")}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
