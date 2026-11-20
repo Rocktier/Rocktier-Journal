@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { t } from "../i18n";
+import { t, tp } from "../i18n";
 import { useTranslation } from "../hooks/useTranslation";
 
 interface DiarySummary {
@@ -81,8 +81,8 @@ export default function SearchView({ onSelect }: Props) {
       {searched && (
         <p className="search-summary">
           {query.trim()
-            ? t("search.resultsFor", { n: results.length, q: query.trim() })
-            : t("search.results", { n: results.length })}
+            ? tp("search.resultsFor", results.length, { q: query.trim() })
+            : tp("search.results", results.length)}
         </p>
       )}
 
@@ -105,7 +105,7 @@ export default function SearchView({ onSelect }: Props) {
             >
               <span className="search-result-date">{formatDate(r.date, locale)}</span>
               {r.title && <span className="search-result-title">{r.title}</span>}
-              <span className="search-result-words">{t("calendar.words", { n: r.word_count })}</span>
+              <span className="search-result-words">{tp("calendar.words", r.word_count)}</span>
               {r.mood && <span className="search-result-mood">{moodMap[r.mood] || "❓"}</span>}
             </li>
           ))}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { t } from "../i18n";
+import { t, tp } from "../i18n";
 import { useTranslation } from "../hooks/useTranslation";
 
 interface DiaryEntry {
@@ -101,7 +101,7 @@ export default function Timeline() {
   return (
     <div className="timeline-view">
       <h2>{t("sidebar.timeline")}</h2>
-      <p className="timeline-subtitle">{t("timeline.subtitle", { n: summaries.length })}</p>
+      <p className="timeline-subtitle">{tp("timeline.subtitle", summaries.length)}</p>
 
       {grouped.length === 0 && (
         <div className="timeline-empty">
@@ -130,7 +130,7 @@ export default function Timeline() {
                     <p className="timeline-entry-title">
                       {entry.title || t("editor.untitled")}
                     </p>
-                    <span className="timeline-entry-words">{t("calendar.words", { n: entry.word_count })}</span>
+                    <span className="timeline-entry-words">{tp("calendar.words", entry.word_count)}</span>
                   </div>
                   {entry.mood && (
                     <span className="timeline-entry-mood" title={entry.custom_mood || undefined}>

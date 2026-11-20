@@ -1,6 +1,6 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { getLocale, setLocale, t, Locale } from "../i18n";
+import { getLocale, setLocale, t, tp, Locale } from "../i18n";
 
 // Locale is a MODULE-LEVEL store shared by every useTranslation() consumer.
 // The previous implementation kept locale in per-hook useState: only the
@@ -34,5 +34,5 @@ export function useTranslation() {
   }, []);
 
 
-  return { locale, t, changeLocale };
+  return { locale, t, tp, changeLocale };
 }

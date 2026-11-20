@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { t } from "../i18n";
+import { t, tp } from "../i18n";
 import { useTranslation } from "../hooks/useTranslation";
 
 interface DiarySummary {
@@ -137,7 +137,7 @@ export default function Calendar({ onDateSelect }: Props) {
           {selectedEntry ? (
             <div className="calendar-entry-summary">
               {selectedEntry.title && <p className="calendar-entry-title">{selectedEntry.title}</p>}
-              <p className="calendar-entry-words">{t("calendar.words", { n: selectedEntry.word_count })}</p>
+              <p className="calendar-entry-words">{tp("calendar.words", selectedEntry.word_count)}</p>
               {selectedEntry.mood && (
                 <p className="calendar-entry-mood">
                   {t("calendar.mood", {

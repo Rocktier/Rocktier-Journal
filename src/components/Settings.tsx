@@ -8,7 +8,7 @@ import { useAuth } from "../hooks/AuthContext";
 
 export default function Settings() {
   const { theme, toggleTheme } = useTheme();
-  const { t, changeLocale, locale } = useTranslation();
+  const { t, tp, changeLocale, locale } = useTranslation();
   const { regenerateRecoveryCode } = useAuth();
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export default function Settings() {
       }
 
       const count = await invoke<number>("export_vault", { outputPath });
-      setExportMsg(t("settings.export.done", { n: count }));
+      setExportMsg(tp("settings.export.done", count));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setExportMsg(t("settings.export.failed", { e: msg }));

@@ -99,7 +99,7 @@ export const en = {
       untitled: "Untitled",
       placeholder: "What's on your mind today?",
       titlePlaceholder: "Optional title…",
-      wordsChars: "{w} words · {c} chars",
+      wordsChars: "Words {w} · Chars {c}",
     },
     format: {
       bold: "Bold",
@@ -121,7 +121,7 @@ export const en = {
     },
     calendar: {
       today: "Today",
-      words: "{n} words",
+      words: { one: "1 word", other: "{n} words" },
       mood: "Mood: {m}",
       noEntry: "No entry for this date.",
       openEditor: "Open in Editor",
@@ -130,7 +130,10 @@ export const en = {
     },
     timeline: {
       loading: "Loading timeline…",
-      subtitle: "{n} entries · Scroll through your past",
+      subtitle: {
+        one: "1 entry · Scroll through your past",
+        other: "{n} entries · Scroll through your past",
+      },
       empty: "No entries to show.",
       emptyHint: "Write your first diary entry to see it here.",
     },
@@ -142,7 +145,7 @@ export const en = {
       exportBtn: "Export Vault as ZIP",
       export: {
         doing: "Exporting…",
-        done: "Exported {n} entries.",
+        done: { one: "Exported 1 entry.", other: "Exported {n} entries." },
         failed: "Export failed: {e}",
         title: "Export Vault",
       },
@@ -161,8 +164,11 @@ export const en = {
       titlePh: "Search title and content…",
       note: "Title and content search is local-only. Small libraries are near-instant; hundreds of entries may take a moment as each entry is decrypted in memory.",
       noResults: "No entries found.",
-      results: "{n} results",
-      resultsFor: "{n} results for \"{q}\"",
+      results: { one: "1 result", other: "{n} results" },
+      resultsFor: {
+        one: '1 result for "{q}"',
+        other: '{n} results for "{q}"',
+      },
     },
     license: {
       title: "License & activation",

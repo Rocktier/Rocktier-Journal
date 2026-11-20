@@ -49,12 +49,30 @@ export function syncHtmlLang(): void {
   if (typeof document !== "undefined") document.documentElement.lang = getLocale();
 }
 
-export function t(path: string, vars?: Record<string, string | number>): string {
-  let s = resolve(getLocale(), path);
-  if (vars) {
-    for (const [k, v] of Object.entries(vars)) {
-      s = s.replace(new RegExp(`\{${k}\}`, "g"), String(v));
-    }
+function interpolate(s: string, vars?: Record<string, string | number>): string {
+  if (!vars) return s;
+  for (const [k, v] of Object.entries(vars)) {
+    s = s.replace(new RegExp(`\{${k}\}`, "g"), String(v));
   }
   return s;
+}
+
+export function t(path: string, vars?: Record<string, string | number>): string {
+  return interpolate(resolve(getLocale(), path), vars);
+}
+
+/**
+ * 带数量的文案。n === 1 取 `<path>.one`，其余取 `<path>.other`。
+ *
+ * 英文的 `1 results` / `1 words` 是这类 bug 的唯一来源，而中文没有单复数，
+ * 两档写同一句即可 —— 但条目仍要成对存在，否则 tp 会回落成不带数量的旧句子。
+ * 两个后缀都缺时回落同名键（兼容尚未迁移的调用点）。
+ */
+export function tp(path: string, n: number, vars?: Record<string, string | number>): string {
+  const suffix = n === 1 ? "one" : "other";
+  const loc = getLocale();
+  const hit =
+    lookup(STRINGS[loc], `${path}.${suffix}`) ??
+    lookup(STRINGS["en-US"], `${path}.${suffix}`);
+  return interpolate(hit ?? resolve(loc, path), { ...vars, n });
 }

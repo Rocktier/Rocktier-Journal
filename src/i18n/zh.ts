@@ -99,7 +99,7 @@ export const zh: Strings = {
       untitled: "无标题",
       placeholder: "今天想写点什么？",
       titlePlaceholder: "标题（可选）…",
-      wordsChars: "{w} 词 · {c} 字符",
+      wordsChars: "词 {w} · 字符 {c}",
     },
     format: {
       bold: "加粗",
@@ -121,7 +121,7 @@ export const zh: Strings = {
     },
     calendar: {
       today: "今天",
-      words: "{n} 字",
+      words: { one: "1 字", other: "{n} 字" },
       mood: "心情：{m}",
       noEntry: "这一天没有日记。",
       openEditor: "在编辑器中打开",
@@ -130,7 +130,10 @@ export const zh: Strings = {
     },
     timeline: {
       loading: "时光轴加载中…",
-      subtitle: "{n} 篇日记 · 回顾你的过往",
+      subtitle: {
+        one: "1 篇日记 · 回顾你的过往",
+        other: "{n} 篇日记 · 回顾你的过往",
+      },
       empty: "暂无日记。",
       emptyHint: "写下第一篇日记，它就会出现在这里。",
     },
@@ -142,7 +145,7 @@ export const zh: Strings = {
       exportBtn: "导出保险箱为 ZIP",
       export: {
         doing: "导出中…",
-        done: "已导出 {n} 篇日记。",
+        done: { one: "已导出 1 篇日记。", other: "已导出 {n} 篇日记。" },
         failed: "导出失败：{e}",
         title: "导出保险箱",
       },
@@ -161,8 +164,8 @@ export const zh: Strings = {
       titlePh: "搜索标题与内容…",
       note: "标题与内容搜索仅在本地进行。小体量近乎即时；上百条日记需逐条在内存中解密，可能稍候。",
       noResults: "未找到日记。",
-      results: "{n} 条结果",
-      resultsFor: "\"{q}\" 的 {n} 条结果",
+      results: { one: "1 条结果", other: "{n} 条结果" },
+      resultsFor: { one: "\"{q}\" 的 1 条结果", other: "\"{q}\" 的 {n} 条结果" },
     },
     license: {
       title: "许可与激活",
